@@ -13,6 +13,7 @@ from provmcp.detectors import (
     CompositeDetector,
     Detector,
     EmbeddingDetector,
+    GatedDetector,
     StructuredFieldDetector,
     SubstringDetector,
 )
@@ -57,12 +58,21 @@ def build_detector(config: ProvMcpConfig) -> Detector:
     det = config.detection
     built: list[Detector] = []
     for name in det.detectors:
+        detector: Detector
         if name == "substring":
-            built.append(SubstringDetector(min_run_length=det.substring_min_run))
+            detector = SubstringDetector(
+                min_run_length=det.substring_min_run, score_mode=det.substring_score
+            )
         elif name == "structured":
-            built.append(StructuredFieldDetector(allowlist=det.allowlist))
+            detector = StructuredFieldDetector(allowlist=det.allowlist)
         else:
-            built.append(EmbeddingDetector(threshold=det.embedding_threshold))
+            detector = EmbeddingDetector(
+                threshold=det.thresholds.get("embedding", det.embedding_threshold)
+            )
+        if det.thresholds:
+            threshold = det.thresholds.get(name, config.proxy.detector_threshold)
+            detector = GatedDetector(detector, threshold)
+        built.append(detector)
     if len(built) == 1:
         return built[0]
     return CompositeDetector(built)
@@ -75,10 +85,12 @@ def build_inspector(config: ProvMcpConfig) -> Inspector | None:
     pairs: dict[tuple[str, str], PolicyTemplate] = {
         (p.source, p.target): p.policy for p in config.proxy.pair_policies
     }
+    # With per-detector gates, the gates make the threshold decision.
+    threshold = 0.0 if config.detection.thresholds else config.proxy.detector_threshold
     return Inspector(
         detector=build_detector(config),
         template=config.proxy.policy,
-        threshold=config.proxy.detector_threshold,
+        threshold=threshold,
         pair_policies=pairs,
         approvals=build_approvals(config),
         audit=build_audit(config),
@@ -103,6 +115,7 @@ def build_proxy(config: ProvMcpConfig) -> Proxy:
         store=ProvenanceStore.empty(),
         router=build_router(config),
         inspector=build_inspector(config),
+        track_tool_metadata=config.detection.enabled and config.detection.track_tool_metadata,
     )
 
 

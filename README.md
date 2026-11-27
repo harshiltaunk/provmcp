@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 8 of 16. Live enforcement with strict / warn-and-confirm / audit policies, out-of-band approvals and an audit log (Week 7), plus an agent harness that measures attack success with real LLMs on our scenarios, MCPSecBench-derived cases and imported InjecAgent cases (Week 8). 182 tests.
+**Status:** Week 9 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios including ten new multi-server attacks, tool-metadata provenance, and per-detector thresholds calibrated on a held-out split (Week 9). 206 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 182 passed
+pytest -q                           # 206 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -59,6 +59,8 @@ provmcp audit -c configs/dev.toml                       # 4. see every decision
 
 Policies can be overridden per (source, target) server pair, and trusted values (for example your own contacts) can be allowlisted. See `configs/dev.toml`.
 
+Detection defaults (since 0.9.0) are calibrated on a held-out split and checked on real Claude traffic: substring 0.428 and structured 0.85, each with its own threshold, and tool descriptions (`tools/list`) tracked as a provenance source. `thresholds = {}` and `track_tool_metadata = false` restore the Week 7 behaviour. The embedding detector is calibrated (see `docs/results/calibration-week9.md`) but opt-in. See `docs/week-09.md`.
+
 ## Measuring attack success with an LLM
 
 ```bash
@@ -74,6 +76,11 @@ provmcp agent-run -s benchmarks/attacks --backend ollama --model llama3.1:8b
 
 # InjecAgent cases as multi-server scenarios (MIT; clone it first)
 python scripts/import_injecagent.py --repo ~/Projects/InjecAgent
+
+# replay cached runs through other detector settings to count false alarms (no model calls)
+provmcp agent-replay --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
+  -s benchmarks/attacks -s benchmarks/benign -s benchmarks/msb \
+  --thresholds none --no-track-tool-metadata     # Week 7 settings; drop for the defaults
 
 # rescore a cache with the current oracles and rebuild a report (no model calls)
 provmcp agent-report --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
@@ -103,7 +110,8 @@ src/provmcp/
   importers/          InjecAgent -> multi-server scenarios
   transports/         stdio and HTTP clients for backing servers
   config.py, wiring.py, cli.py, benchmark.py
-benchmarks/           attack (cd-*), benign (bn-*) and MCPSecBench-derived (msb-*) scenarios
+benchmarks/           attack (cd-*), benign (bn-*) and MCPSecBench-derived (msb-*) scenarios;
+                      splits/ holds the frozen Week 6 corpus and the Week 9 calibration split
 examples/             echo and scripted test servers
 configs/              dev.toml, demo-attack.toml
 scripts/              evaluation, demo and verification scripts
@@ -117,12 +125,12 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week8.sh
+bash scripts/verify_week9.sh
 ```
 
 ## Known limitations
 
-See `docs/week-07.md` and `docs/week-08.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no session scope or expiry yet; only `tools/call` is inspected; tool descriptions (`tools/list`) are not tracked; the substring detector's scores never reach the live threshold; and provenance sees data flow, not user intent.
+See `docs/week-07.md` to `docs/week-09.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no session scope or expiry yet; only `tools/call` is inspected; encoded, reformatted or paraphrased data and pure control-flow hijacks are not detected; and provenance sees data flow, not user intent, so flows the user asked for are flagged too.
 
 ## License
 

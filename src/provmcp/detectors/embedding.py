@@ -20,11 +20,11 @@ findings. The substring detector carries the suite in that case.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any
 
-from provmcp.detectors.substring import _flatten_to_text
 from provmcp.policy import InfluenceFinding
 from provmcp.provenance import ProvenanceStore, TaggedPayload
 
@@ -33,6 +33,24 @@ log = logging.getLogger(__name__)
 # One module-level cache so repeated detector instances do not reload the
 # model from disk. Access is keyed by model name.
 _MODEL_CACHE: dict[str, Any] = {}
+
+
+def _flatten_to_text(obj: Any) -> str:
+    """Render content as one string for sentence splitting (unchanged since Week 5).
+
+    The embedding detector keeps its own copy. It used to share the substring
+    detector's helper, so Week 9's values-only change to that helper silently
+    changed the embedding inputs and the frozen Week 6 results. Whether values
+    only would help embeddings too is a separate experiment.
+    """
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, (int, float, bool)) or obj is None:
+        return str(obj)
+    try:
+        return json.dumps(obj, ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError):
+        return repr(obj)
 
 
 def _split_sentences(text: str, *, min_chars: int = 15) -> list[str]:

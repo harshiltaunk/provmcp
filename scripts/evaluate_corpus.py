@@ -9,6 +9,7 @@ Usage:
     python scripts/evaluate_corpus.py
     python scripts/evaluate_corpus.py --embedding-threshold 0.52
     python scripts/evaluate_corpus.py --out docs/results/eval-week6.md
+    python scripts/evaluate_corpus.py --split benchmarks/splits/week6.json   # frozen Week 6 corpus
 
 The embedding detector needs the optional extra (`pip install -e ".[embed]"`).
 Without it, the embedding row reports zero detections and prints a warning.
@@ -17,6 +18,7 @@ Without it, the embedding row reports zero detections and prints a warning.
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,6 +34,14 @@ from provmcp.detectors import (
 REPO = Path(__file__).parent.parent
 ATTACKS = REPO / "benchmarks" / "attacks"
 BENIGN = REPO / "benchmarks" / "benign"
+
+
+def split_ids(path: Path | None) -> set[str] | None:
+    """Scenario ids listed in a split file (every list in it), or None for all."""
+    if path is None:
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {sid for value in data.values() if isinstance(value, list) for sid in value}
 
 
 @dataclass
@@ -77,9 +87,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--embedding-threshold", type=float, default=0.72)
     parser.add_argument("--out", type=Path, default=None, help="write a markdown report here")
+    parser.add_argument("--split", type=Path, default=None, help="only the ids in this split file")
     args = parser.parse_args()
 
-    corpus = load_scenarios(ATTACKS) + load_scenarios(BENIGN)
+    keep = split_ids(args.split)
+    corpus = [
+        s for s in load_scenarios(ATTACKS) + load_scenarios(BENIGN) if keep is None or s.id in keep
+    ]
     detectors = build_detectors(args.embedding_threshold)
 
     scores: dict[str, Scores] = {name: Scores() for name in detectors}

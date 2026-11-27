@@ -89,7 +89,8 @@ def test_build_inspector_follows_detection_section(tmp_path: Path) -> None:
     one = load_config(_config(tmp_path, '[detection]\ndetectors = ["structured"]\n' + servers))
     inspector = build_inspector(one)
     assert inspector is not None
-    assert isinstance(inspector.detector, StructuredFieldDetector)
+    inner = getattr(inspector.detector, "detector", inspector.detector)  # gated since 0.9.0
+    assert isinstance(inner, StructuredFieldDetector)
 
     both = load_config(_config(tmp_path, servers))
     built = build_inspector(both)

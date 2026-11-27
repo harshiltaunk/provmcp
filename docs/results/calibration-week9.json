@@ -1,0 +1,9 @@
+{
+  "substring_score": "longest",
+  "thresholds": {
+    "substring": 0.428,
+    "structured": 0.85,
+    "embedding": 0.51
+  },
+  "track_tool_metadata": true
+}

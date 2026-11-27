@@ -26,6 +26,8 @@ Example:
     [detection]
     detectors = ["substring", "structured"]
     allowlist = ["dana.lee@fresnostate.edu"]
+    # defaults: thresholds = { substring = 0.428, structured = 0.85 },
+    # track_tool_metadata = true. Use thresholds = {} for one global threshold.
 
     [[servers]]
     id = "time"
@@ -55,6 +57,11 @@ DetectorName = Literal["substring", "structured", "embedding"]
 
 def _default_detectors() -> list[DetectorName]:
     return ["substring", "structured"]
+
+
+def _calibrated_thresholds() -> dict[DetectorName, float]:
+    """Week 9 calibration (docs/results/calibration-week9.md)."""
+    return {"substring": 0.428, "structured": 0.85}
 
 
 class ServerConfig(BaseModel):
@@ -103,13 +110,41 @@ class ProxyConfig(BaseModel):
 
 
 class DetectionConfig(BaseModel):
-    """The [detection] section: which detectors inspect live traffic."""
+    """The [detection] section: which detectors inspect live traffic.
+
+    `thresholds` sets a decision threshold per detector. When it is
+    non-empty, each detector is gated at its own threshold, falling back to
+    `[proxy] detector_threshold` for detectors it does not name. Set it to
+    `{}` for the single global threshold of Weeks 7-8.
+
+    `track_tool_metadata` records every server's `tools/list` result as
+    provenance, so a tool description that ends up in another server's call
+    is caught (MCPSecBench ATT-8).
+
+    Defaults (0.9.0) are the Week 9 calibration: substring 0.428 and
+    structured 0.85, chosen on the calibration split, confirmed on the
+    held-out split, and replayed on 355 real Claude Haiku 5.5 runs with no
+    added false alarms. See docs/week-09.md. Embedding is calibrated in
+    docs/results/calibration-week9.md but stays opt-in until its real-traffic
+    false alarms and latency are measured.
+    """
 
     enabled: bool = True
     detectors: list[DetectorName] = Field(default_factory=_default_detectors)
     substring_min_run: int = Field(default=8, ge=2)
+    substring_score: Literal["longest", "coverage"] = "longest"
     embedding_threshold: float = Field(default=0.72, gt=0.0, le=1.0)
     allowlist: list[str] = Field(default_factory=list)
+    thresholds: dict[DetectorName, float] = Field(default_factory=_calibrated_thresholds)
+    track_tool_metadata: bool = True
+
+    @field_validator("thresholds")
+    @classmethod
+    def _thresholds_in_range(cls, value: dict[DetectorName, float]) -> dict[DetectorName, float]:
+        for name, threshold in value.items():
+            if not 0.0 <= threshold <= 1.0:
+                raise ValueError(f"threshold for {name} must be between 0 and 1")
+        return value
 
 
 class ProvMcpConfig(BaseModel):
