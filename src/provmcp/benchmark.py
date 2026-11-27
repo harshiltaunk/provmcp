@@ -22,6 +22,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from provmcp.detectors.base import Detector
 from provmcp.detectors.substring import SubstringDetector
 from provmcp.policy import InfluenceFinding
 from provmcp.provenance import OriginTag, ProvenanceStore, TaggedPayload
@@ -99,7 +100,7 @@ class BenchmarkRunner:
     through a shared Detector protocol then.
     """
 
-    def __init__(self, *, detector: SubstringDetector | None = None) -> None:
+    def __init__(self, *, detector: Detector | None = None) -> None:
         self.detector = detector or SubstringDetector(min_run_length=8)
 
     def run(self, scenario: Scenario) -> ScenarioResult:
