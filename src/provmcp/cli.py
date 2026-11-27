@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
+import uvicorn
 from rich.console import Console
 from rich.table import Table
 
 from provmcp import __version__
 from provmcp.config import load_config
 from provmcp.proxy import RpcRequest
+from provmcp.server import build_app
 from provmcp.wiring import build_proxy
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -31,7 +35,7 @@ def doctor() -> None:
     """Report Python version and import health."""
     console.print(f"python: [bold]{sys.version.split()[0]}[/bold]")
     ok = True
-    for module in ("pydantic", "fastapi", "httpx", "typer"):
+    for module in ("pydantic", "fastapi", "httpx", "typer", "uvicorn"):
         try:
             __import__(module)
             console.print(f"  {module}: [green]ok[/green]")
@@ -77,27 +81,21 @@ def ping(
     async def go() -> None:
         await proxy.router.start_all()
         try:
-            # MCP handshake: initialize then notifications/initialized.
             await proxy.handle(
                 RpcRequest(
                     method="initialize",
                     params={
                         "protocolVersion": "2024-11-05",
                         "capabilities": {},
-                        "clientInfo": {"name": "provmcp-ping", "version": "0.2.0"},
+                        "clientInfo": {"name": "provmcp-ping", "version": __version__},
                     },
                     request_id=1,
                     target_server_id=server,
                 )
             )
-            # Notification: no id, no response expected. Fire-and-forget via
-            # the transport directly since handle() assumes a reply.
             transport = proxy.router.get(server)
-            try:
+            with contextlib.suppress(Exception):
                 await transport.call("notifications/initialized", {})
-            except Exception:  # noqa: BLE001 — notifications may not reply
-                pass
-
             response = await proxy.handle(
                 RpcRequest(
                     method=method,
@@ -111,6 +109,58 @@ def ping(
             await proxy.router.close_all()
 
     asyncio.run(go())
+
+
+@app.command()
+def run(
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+    host: Annotated[str | None, typer.Option("--host")] = None,
+    port: Annotated[int | None, typer.Option("--port")] = None,
+    log_level: Annotated[str, typer.Option("--log-level")] = "info",
+) -> None:
+    """Start the ProvMCP HTTP server loop.
+
+    Loads the config, wires a Proxy, and serves JSON-RPC over HTTP so MCP
+    clients can connect at `/mcp/<server_id>`.
+    """
+    cfg = load_config(config)
+    bind_host = host or cfg.proxy.host
+    bind_port = port or cfg.proxy.port
+    fastapi_app = build_app(build_proxy(cfg))
+    console.print(
+        f"ProvMCP serving {len(cfg.servers)} server(s) on "
+        f"[bold]http://{bind_host}:{bind_port}[/bold]"
+    )
+    uvicorn.run(fastapi_app, host=bind_host, port=bind_port, log_level=log_level)
+
+
+@app.command(name="export-claude-config")
+def export_claude_config(
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 7337,
+) -> None:
+    """Print a Claude Desktop config stanza that points at ProvMCP.
+
+    Writes the JSON to stdout so you can paste it (or pipe it) into the
+    Claude Desktop config file at:
+
+        ~/Library/Application Support/Claude/claude_desktop_config.json
+
+    One MCP host entry per ProvMCP-managed server, each pointing at the
+    correct `/mcp/<server_id>` endpoint.
+    """
+    cfg = load_config(config)
+    stanza = {
+        "mcpServers": {
+            s.id: {
+                "url": f"http://{host}:{port}/mcp/{s.id}",
+                "transport": "http",
+            }
+            for s in cfg.servers
+        }
+    }
+    print(json.dumps(stanza, indent=2))
 
 
 if __name__ == "__main__":
