@@ -12,6 +12,7 @@ pass-through without spinning up subprocesses.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -58,8 +59,9 @@ class Router:
         return self._transports[server_id]
 
     async def start_all(self) -> None:
-        for transport in self._transports.values():
-            await transport.start()
+        if not self._transports:
+            return
+        await asyncio.gather(*(t.start() for t in self._transports.values()))
 
     async def close_all(self) -> None:
         for transport in self._transports.values():

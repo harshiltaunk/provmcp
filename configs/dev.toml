@@ -15,14 +15,14 @@ trust = "trusted"
 transport = "stdio"
 command = ["python", "examples/dummy_server/echo_server.py"]
 
-
-
- [[servers]]
- id = "time"
- display_name = "Time (reference)"
- trust = "trusted"
- transport = "stdio"
- command = ["uvx", "mcp-server-time"]
+# Uncomment once Anthropic's reference servers are installed via uvx:
+#
+# [[servers]]
+# id = "time"
+# display_name = "Time (reference)"
+# trust = "trusted"
+# transport = "stdio"
+# command = ["uvx", "mcp-server-time"]
 #
 # [[servers]]
 # id = "filesystem"
