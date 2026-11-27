@@ -134,32 +134,116 @@ def run(
     uvicorn.run(fastapi_app, host=bind_host, port=bind_port, log_level=log_level)
 
 
+@app.command()
+def bridge(
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+    server: Annotated[str, typer.Option("--server", "-s")],
+) -> None:
+    """Run the stdio bridge for one backing server.
+
+    Fronts exactly one server identified by `--server`, speaking MCP over
+    stdin/stdout. Point Claude Desktop's `claude_desktop_config.json` at
+    `provmcp bridge -c <path> -s <server_id>` to insert ProvMCP between
+    Claude Desktop and that backing server.
+    """
+    from provmcp.bridge import StdioBridge
+
+    cfg = load_config(config)
+    proxy = build_proxy(cfg)
+    stdio_bridge = StdioBridge(proxy=proxy, server_id=server)
+    asyncio.run(stdio_bridge.run())
+
+
+@app.command(name="run-benchmark")
+def run_benchmark(
+    scenarios: Annotated[Path, typer.Option("--scenarios", exists=True)],
+) -> None:
+    """Replay every JSON scenario under a directory through the detector.
+
+    Prints a per-scenario summary of findings vs. ground truth and an
+    aggregate confusion-matrix-style report.
+    """
+    from provmcp.benchmark import BenchmarkRunner, load_scenarios
+
+    runner = BenchmarkRunner()
+    corpus = load_scenarios(scenarios)
+    tp = fp = tn = fn = 0
+    for scenario in corpus:
+        result = runner.run(scenario)
+        gt = result.ground_truth
+        flagged = any(step.findings for step in result.steps)
+        if gt == "cross_server_influence":
+            if flagged:
+                tp += 1
+                verdict = "[green]true positive[/green]"
+            else:
+                fn += 1
+                verdict = "[red]false negative[/red]"
+        else:
+            if flagged:
+                fp += 1
+                verdict = "[red]false positive[/red]"
+            else:
+                tn += 1
+                verdict = "[green]true negative[/green]"
+        console.print(f"{result.scenario_id}: {verdict}")
+        for step in result.steps:
+            if step.findings:
+                for f in step.findings:
+                    console.print(
+                        f"  step {step.step} → {f.source_server_id} → "
+                        f"{f.target_server_id} conf={f.confidence:.2f} "
+                        f"excerpt={f.excerpt[:60]!r}"
+                    )
+    total = tp + fp + tn + fn
+    console.print()
+    console.print(f"[bold]Summary[/bold]: {total} scenarios  TP={tp} FP={fp} TN={tn} FN={fn}")
+
+
 @app.command(name="export-claude-config")
 def export_claude_config(
     config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+    mode: Annotated[str, typer.Option("--mode")] = "bridge",
     host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port")] = 7337,
 ) -> None:
     """Print a Claude Desktop config stanza that points at ProvMCP.
 
-    Writes the JSON to stdout so you can paste it (or pipe it) into the
-    Claude Desktop config file at:
+    Writes JSON to stdout. Paste into the Claude Desktop config file at:
 
         ~/Library/Application Support/Claude/claude_desktop_config.json
 
-    One MCP host entry per ProvMCP-managed server, each pointing at the
-    correct `/mcp/<server_id>` endpoint.
+    --mode bridge (default): emits one stdio bridge command per server,
+      compatible with vanilla Claude Desktop.
+    --mode http: emits HTTP endpoints at `/mcp/<server_id>`, for clients
+      that support HTTP transport.
     """
     cfg = load_config(config)
-    stanza = {
-        "mcpServers": {
-            s.id: {
-                "url": f"http://{host}:{port}/mcp/{s.id}",
-                "transport": "http",
+    abs_config = str(Path(config).resolve())
+    stanza: dict[str, dict[str, dict[str, object]]]
+    if mode == "http":
+        stanza = {
+            "mcpServers": {
+                s.id: {
+                    "url": f"http://{host}:{port}/mcp/{s.id}",
+                    "transport": "http",
+                }
+                for s in cfg.servers
             }
-            for s in cfg.servers
         }
-    }
+    elif mode == "bridge":
+        provmcp_bin = sys.executable.rsplit("/", 1)[0] + "/provmcp"
+        stanza = {
+            "mcpServers": {
+                s.id: {
+                    "command": provmcp_bin,
+                    "args": ["bridge", "--config", abs_config, "--server", s.id],
+                }
+                for s in cfg.servers
+            }
+        }
+    else:
+        raise typer.BadParameter(f"unknown mode: {mode!r} (use 'bridge' or 'http')")
     print(json.dumps(stanza, indent=2))
 
 

@@ -124,3 +124,33 @@ async def test_router_start_and_close_propagate() -> None:
     await router.close_all()
     assert t.started is True
     assert t.closed is True
+
+
+async def test_router_starts_transports_concurrently() -> None:
+    """start_all should run transport starts in parallel, not serially.
+
+    Each transport sleeps 100ms during start. Four transports in parallel
+    should finish well under 400ms; serial would take ~400ms or more.
+    """
+    import asyncio
+    import time
+
+    class SlowStart(FakeTransport):
+        async def start(self) -> None:
+            await asyncio.sleep(0.1)
+            await super().start()
+
+    router = Router()
+    for i in range(4):
+        router.register(f"s{i}", SlowStart({}))
+
+    t0 = time.perf_counter()
+    await router.start_all()
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 0.3, f"start_all took {elapsed:.3f}s; expected < 0.3s"
+    await router.close_all()
+
+
+async def test_router_start_all_empty_is_a_noop() -> None:
+    await Router().start_all()
+    await Router().close_all()
