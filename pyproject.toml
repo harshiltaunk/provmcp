@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "provmcp"
-version = "0.4.0"
+version = "0.5.0"
 description = "Runtime detection of cross-server confused-deputy attacks in MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,6 +27,7 @@ dependencies = [
     "tomli>=2.0; python_version<'3.11'",
     "typer>=0.12",
     "rich>=13.7",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
@@ -57,6 +58,10 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "C4"]
 python_version = "3.11"
 strict = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["sentence_transformers", "sentence_transformers.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

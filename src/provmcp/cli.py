@@ -7,7 +7,7 @@ import contextlib
 import json
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 import uvicorn
@@ -16,6 +16,7 @@ from rich.table import Table
 
 from provmcp import __version__
 from provmcp.config import load_config
+from provmcp.detectors.base import Detector
 from provmcp.proxy import RpcRequest
 from provmcp.server import build_app
 from provmcp.wiring import build_proxy
@@ -157,15 +158,38 @@ def bridge(
 @app.command(name="run-benchmark")
 def run_benchmark(
     scenarios: Annotated[Path, typer.Option("--scenarios", exists=True)],
+    detector: Annotated[str, typer.Option("--detector", "-d")] = "substring",
+    embedding_threshold: Annotated[float, typer.Option("--embedding-threshold")] = 0.72,
 ) -> None:
     """Replay every JSON scenario under a directory through the detector.
 
-    Prints a per-scenario summary of findings vs. ground truth and an
-    aggregate confusion-matrix-style report.
+    --detector substring   byte-level matching only (default)
+    --detector embedding   sentence-transformers semantic similarity
+    --detector composite   both, deduplicated per source server
     """
     from provmcp.benchmark import BenchmarkRunner, load_scenarios
+    from provmcp.detectors import (
+        CompositeDetector,
+        EmbeddingDetector,
+        SubstringDetector,
+    )
 
-    runner = BenchmarkRunner()
+    selected: Detector
+    if detector == "substring":
+        selected = SubstringDetector(min_run_length=8)
+    elif detector == "embedding":
+        selected = EmbeddingDetector(threshold=embedding_threshold)
+    elif detector == "composite":
+        selected = CompositeDetector(
+            [
+                SubstringDetector(min_run_length=8),
+                EmbeddingDetector(threshold=embedding_threshold),
+            ]
+        )
+    else:
+        raise typer.BadParameter(f"unknown detector: {detector!r}")
+
+    runner = BenchmarkRunner(detector=selected)
     corpus = load_scenarios(scenarios)
     tp = fp = tn = fn = 0
     for scenario in corpus:
@@ -220,7 +244,7 @@ def export_claude_config(
     """
     cfg = load_config(config)
     abs_config = str(Path(config).resolve())
-    stanza: dict[str, dict[str, dict[str, object]]]
+    stanza: dict[str, Any]
     if mode == "http":
         stanza = {
             "mcpServers": {
