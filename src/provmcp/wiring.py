@@ -112,7 +112,10 @@ def build_proxy(config: ProvMcpConfig) -> Proxy:
     """Build a Proxy that is ready to `await router.start_all()` and serve."""
     return Proxy(
         registry=build_registry(config),
-        store=ProvenanceStore.empty(),
+        store=ProvenanceStore(
+            max_per_server=config.proxy.provenance_max_per_server,
+            ttl_seconds=config.proxy.provenance_ttl_seconds,
+        ),
         router=build_router(config),
         inspector=build_inspector(config),
         track_tool_metadata=config.detection.enabled and config.detection.track_tool_metadata,

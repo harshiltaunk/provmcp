@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="588" viewBox="0 0 760 588" role="img" aria-labelledby="chart-title chart-desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="chart-title">Daemon memory over a long session</title>
+<desc id="chart-desc">Resident set size of `provmcp run`. Line: the 100 MB target.</desc>
+<rect width="760" height="588" fill="#ffffff"/>
+<text x="16" y="28" font-size="15" font-weight="600" fill="#191919">Daemon memory over a long session</text>
+<text x="16" y="48" font-size="12" fill="#666666">Resident set size of `provmcp run`. Line: the 100 MB target.</text>
+<rect x="250" y="62" width="10" height="10" rx="2" fill="#257de0"/>
+<text x="266" y="71" font-size="12" fill="#191919">unbounded store</text>
+<rect x="379" y="62" width="10" height="10" rx="2" fill="#f47230"/>
+<text x="395" y="71" font-size="12" fill="#191919">bounded, 1000 per server</text>
+<line x1="250.0" y1="84" x2="250.0" y2="558" stroke="#e6e6e6" stroke-width="1"/>
+<text x="250.0" y="574" font-size="11" fill="#666666" text-anchor="middle">0 MB</text>
+<line x1="357.5" y1="84" x2="357.5" y2="558" stroke="#e6e6e6" stroke-width="1"/>
+<text x="357.5" y="574" font-size="11" fill="#666666" text-anchor="middle">50.0 MB</text>
+<line x1="465.0" y1="84" x2="465.0" y2="558" stroke="#e6e6e6" stroke-width="1"/>
+<text x="465.0" y="574" font-size="11" fill="#666666" text-anchor="middle">100 MB</text>
+<line x1="572.5" y1="84" x2="572.5" y2="558" stroke="#e6e6e6" stroke-width="1"/>
+<text x="572.5" y="574" font-size="11" fill="#666666" text-anchor="middle">150 MB</text>
+<line x1="680.0" y1="84" x2="680.0" y2="558" stroke="#e6e6e6" stroke-width="1"/>
+<text x="680.0" y="574" font-size="11" fill="#666666" text-anchor="middle">200 MB</text>
+<line x1="465.0" y1="90" x2="465.0" y2="558" stroke="#191919" stroke-width="1.5"/>
+<text x="469.0" y="554" font-size="11" fill="#191919">target 100 MB</text>
+<text x="240" y="109.0" font-size="12" fill="#191919" text-anchor="end">0 calls</text>
+<g>
+<title>0 calls, unbounded store: 53.9 MB (upper 53.9 MB)</title>
+<path d="M250.0,92.0 h111.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-111.9 Z" fill="#257de0"/>
+<text x="371.9" y="102" font-size="11" fill="#666666">53.9</text>
+</g>
+<g>
+<title>0 calls, bounded, 1000 per server: 54.0 MB (upper 54.0 MB)</title>
+<path d="M250.0,106.0 h112.1 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-112.1 Z" fill="#f47230"/>
+<text x="372.1" y="116" font-size="11" fill="#666666">54.0</text>
+</g>
+<text x="240" y="151.0" font-size="12" fill="#191919" text-anchor="end">1000 calls</text>
+<g>
+<title>1000 calls, unbounded store: 58.4 MB (upper 58.4 MB)</title>
+<path d="M250.0,134.0 h121.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-121.6 Z" fill="#257de0"/>
+<text x="381.6" y="144" font-size="11" fill="#666666">58.4</text>
+</g>
+<g>
+<title>1000 calls, bounded, 1000 per server: 58.4 MB (upper 58.4 MB)</title>
+<path d="M250.0,148.0 h121.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-121.6 Z" fill="#f47230"/>
+<text x="381.6" y="158" font-size="11" fill="#666666">58.4</text>
+</g>
+<text x="240" y="193.0" font-size="12" fill="#191919" text-anchor="end">2000 calls</text>
+<g>
+<title>2000 calls, unbounded store: 62.8 MB (upper 62.8 MB)</title>
+<path d="M250.0,176.0 h131.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-131.0 Z" fill="#257de0"/>
+<text x="391.0" y="186" font-size="11" fill="#666666">62.8</text>
+</g>
+<g>
+<title>2000 calls, bounded, 1000 per server: 62.8 MB (upper 62.8 MB)</title>
+<path d="M250.0,190.0 h131.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-131.0 Z" fill="#f47230"/>
+<text x="391.0" y="200" font-size="11" fill="#666666">62.8</text>
+</g>
+<text x="240" y="235.0" font-size="12" fill="#191919" text-anchor="end">3000 calls</text>
+<g>
+<title>3000 calls, unbounded store: 67.1 MB (upper 67.1 MB)</title>
+<path d="M250.0,218.0 h140.3 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-140.3 Z" fill="#257de0"/>
+<text x="400.3" y="228" font-size="11" fill="#666666">67.1</text>
+</g>
+<g>
+<title>3000 calls, bounded, 1000 per server: 62.8 MB (upper 62.8 MB)</title>
+<path d="M250.0,232.0 h131.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-131.0 Z" fill="#f47230"/>
+<text x="391.0" y="242" font-size="11" fill="#666666">62.8</text>
+</g>
+<text x="240" y="277.0" font-size="12" fill="#191919" text-anchor="end">4000 calls</text>
+<g>
+<title>4000 calls, unbounded store: 71.5 MB (upper 71.5 MB)</title>
+<path d="M250.0,260.0 h149.7 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-149.7 Z" fill="#257de0"/>
+<text x="409.7" y="270" font-size="11" fill="#666666">71.5</text>
+</g>
+<g>
+<title>4000 calls, bounded, 1000 per server: 62.9 MB (upper 62.9 MB)</title>
+<path d="M250.0,274.0 h131.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-131.2 Z" fill="#f47230"/>
+<text x="391.2" y="284" font-size="11" fill="#666666">62.9</text>
+</g>
+<text x="240" y="319.0" font-size="12" fill="#191919" text-anchor="end">5000 calls</text>
+<g>
+<title>5000 calls, unbounded store: 75.9 MB (upper 75.9 MB)</title>
+<path d="M250.0,302.0 h159.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-159.2 Z" fill="#257de0"/>
+<text x="419.2" y="312" font-size="11" fill="#666666">75.9</text>
+</g>
+<g>
+<title>5000 calls, bounded, 1000 per server: 62.9 MB (upper 62.9 MB)</title>
+<path d="M250.0,316.0 h131.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-131.2 Z" fill="#f47230"/>
+<text x="391.2" y="326" font-size="11" fill="#666666">62.9</text>
+</g>
+<text x="240" y="361.0" font-size="12" fill="#191919" text-anchor="end">6000 calls</text>
+<g>
+<title>6000 calls, unbounded store: 80.7 MB (upper 80.7 MB)</title>
+<path d="M250.0,344.0 h169.5 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-169.5 Z" fill="#257de0"/>
+<text x="429.5" y="354" font-size="11" fill="#666666">80.7</text>
+</g>
+<g>
+<title>6000 calls, bounded, 1000 per server: 36.9 MB (upper 36.9 MB)</title>
+<path d="M250.0,358.0 h75.3 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-75.3 Z" fill="#f47230"/>
+<text x="335.3" y="368" font-size="11" fill="#666666">36.9</text>
+</g>
+<text x="240" y="403.0" font-size="12" fill="#191919" text-anchor="end">7000 calls</text>
+<g>
+<title>7000 calls, unbounded store: 85.0 MB (upper 85.0 MB)</title>
+<path d="M250.0,386.0 h178.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-178.8 Z" fill="#257de0"/>
+<text x="438.8" y="396" font-size="11" fill="#666666">85.0</text>
+</g>
+<g>
+<title>7000 calls, bounded, 1000 per server: 37.1 MB (upper 37.1 MB)</title>
+<path d="M250.0,400.0 h75.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-75.8 Z" fill="#f47230"/>
+<text x="335.8" y="410" font-size="11" fill="#666666">37.1</text>
+</g>
+<text x="240" y="445.0" font-size="12" fill="#191919" text-anchor="end">8000 calls</text>
+<g>
+<title>8000 calls, unbounded store: 89.3 MB (upper 89.3 MB)</title>
+<path d="M250.0,428.0 h188.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-188.0 Z" fill="#257de0"/>
+<text x="448.0" y="438" font-size="11" fill="#666666">89.3</text>
+</g>
+<g>
+<title>8000 calls, bounded, 1000 per server: 37.1 MB (upper 37.1 MB)</title>
+<path d="M250.0,442.0 h75.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-75.8 Z" fill="#f47230"/>
+<text x="335.8" y="452" font-size="11" fill="#666666">37.1</text>
+</g>
+<text x="240" y="487.0" font-size="12" fill="#191919" text-anchor="end">9000 calls</text>
+<g>
+<title>9000 calls, unbounded store: 79.9 MB (upper 79.9 MB)</title>
+<path d="M250.0,470.0 h167.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-167.8 Z" fill="#257de0"/>
+<text x="427.8" y="480" font-size="11" fill="#666666">79.9</text>
+</g>
+<g>
+<title>9000 calls, bounded, 1000 per server: 37.1 MB (upper 37.1 MB)</title>
+<path d="M250.0,484.0 h75.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-75.8 Z" fill="#f47230"/>
+<text x="335.8" y="494" font-size="11" fill="#666666">37.1</text>
+</g>
+<text x="240" y="529.0" font-size="12" fill="#191919" text-anchor="end">10000 calls</text>
+<g>
+<title>10000 calls, unbounded store: 84.2 MB (upper 84.2 MB)</title>
+<path d="M250.0,512.0 h177.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-177.0 Z" fill="#257de0"/>
+<text x="437.0" y="522" font-size="11" fill="#666666">84.2</text>
+</g>
+<g>
+<title>10000 calls, bounded, 1000 per server: 36.8 MB (upper 36.8 MB)</title>
+<path d="M250.0,526.0 h75.1 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-75.1 Z" fill="#f47230"/>
+<text x="335.1" y="536" font-size="11" fill="#666666">36.8</text>
+</g>
+</svg>

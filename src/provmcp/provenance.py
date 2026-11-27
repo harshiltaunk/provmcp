@@ -14,9 +14,13 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any, Self
+from collections import deque
+from collections.abc import Callable
+from typing import Any, Self, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
+
+T = TypeVar("T")
 
 
 class OriginTag(BaseModel):
@@ -66,30 +70,116 @@ class TaggedPayload(BaseModel):
 
 
 class ProvenanceStore:
-    """An in-memory record of every payload the host has seen, by tag.
+    """An in-memory record of the payloads the host has seen, by tag.
 
-    The store is a simple append-only map for Week 1 — persistence and bounded
-    retention arrive in Week 3. The store is single-process; multi-proxy
-    coordination is out of scope for this project.
+    Bounds (Week 11). Without them the store grows for the life of the
+    daemon:
+
+    - `max_per_server` keeps at most this many payloads per *source server*,
+      evicting that server's oldest first. A cap per server, not a global
+      one, means a chatty or hostile server can only push out its own old
+      records, never another server's. It cannot "flush" the provenance of
+      the content it wants to smuggle into a different server's call.
+    - `ttl_seconds` drops payloads older than this when the store is written
+      or read.
+
+    Derived data (Week 11). Detectors re-derived the same things from every
+    stored payload on every call: word runs, typed fields, sentence
+    embeddings. `derived()` computes them once per payload and drops them
+    with the payload. `cache_derived=False` turns that off, for before/after
+    measurement.
+
+    The store is single-process; multi-proxy coordination is out of scope.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_per_server: int | None = None,
+        ttl_seconds: float | None = None,
+        cache_derived: bool = True,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if max_per_server is not None and max_per_server < 1:
+            raise ValueError("max_per_server must be at least 1")
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("ttl_seconds must be positive")
+        self.max_per_server = max_per_server
+        self.ttl_seconds = ttl_seconds
+        self.cache_derived = cache_derived
+        self._clock = clock
         self._payloads: dict[str, TaggedPayload] = {}
+        self._recorded_at: dict[str, float] = {}
+        self._by_server: dict[str, deque[str]] = {}
+        self._derived: dict[str, dict[str, Any]] = {}
+        self.evicted = 0
 
     def record(self, payload: TaggedPayload) -> None:
-        self._payloads[payload.tag.tag_id] = payload
+        tag_id = payload.tag.tag_id
+        if tag_id in self._payloads:
+            self._drop(tag_id)
+        self._payloads[tag_id] = payload
+        self._recorded_at[tag_id] = self._clock()
+        queue = self._by_server.setdefault(payload.tag.server_id, deque())
+        queue.append(tag_id)
+        if self.max_per_server is not None:
+            while len(queue) > self.max_per_server:
+                self._drop(queue[0])
+                self.evicted += 1
+        self._expire()
+
+    def payloads(self) -> list[TaggedPayload]:
+        """Every live payload, oldest first."""
+        self._expire()
+        return list(self._payloads.values())
+
+    def derived(self, tag_id: str, key: str, compute: Callable[[], T]) -> T:
+        """`compute()` once per (payload, key); the result lives as long as the payload."""
+        if not self.cache_derived or tag_id not in self._payloads:
+            return compute()
+        bucket = self._derived.setdefault(tag_id, {})
+        if key not in bucket:
+            bucket[key] = compute()
+        value: T = bucket[key]
+        return value
 
     def get(self, tag_id: str) -> TaggedPayload | None:
         return self._payloads.get(tag_id)
 
     def from_server(self, server_id: str) -> list[TaggedPayload]:
-        return [p for p in self._payloads.values() if p.is_from(server_id)]
+        return [p for p in self.payloads() if p.is_from(server_id)]
 
     def __len__(self) -> int:
         return len(self._payloads)
 
     def clear(self) -> None:
         self._payloads.clear()
+        self._recorded_at.clear()
+        self._by_server.clear()
+        self._derived.clear()
+
+    def _drop(self, tag_id: str) -> None:
+        payload = self._payloads.pop(tag_id, None)
+        self._recorded_at.pop(tag_id, None)
+        self._derived.pop(tag_id, None)
+        if payload is not None:
+            queue = self._by_server.get(payload.tag.server_id)
+            if queue:
+                if queue[0] == tag_id:
+                    queue.popleft()
+                else:
+                    queue.remove(tag_id)
+
+    def _expire(self) -> None:
+        if self.ttl_seconds is None:
+            return
+        cutoff = self._clock() - self.ttl_seconds
+        # Insertion order is recording order, so expired payloads are at the front.
+        for tag_id in list(self._recorded_at):
+            if self._recorded_at[tag_id] > cutoff:
+                break
+            self._drop(tag_id)
+            self.evicted += 1
 
     @classmethod
     def empty(cls) -> Self:

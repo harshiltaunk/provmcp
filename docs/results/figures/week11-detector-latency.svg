@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="574" viewBox="0 0 760 574" role="img" aria-labelledby="chart-title chart-desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="chart-title">Detector time per tool call</title>
+<desc id="chart-desc">Bar: median; whisker: 95th percentile. Log scale. Line: the 50 ms target.</desc>
+<rect width="760" height="574" fill="#ffffff"/>
+<text x="16" y="28" font-size="15" font-weight="600" fill="#191919">Detector time per tool call</text>
+<text x="16" y="48" font-size="12" fill="#666666">Bar: median; whisker: 95th percentile. Log scale. Line: the 50 ms target.</text>
+<rect x="250" y="62" width="10" height="10" rx="2" fill="#257de0"/>
+<text x="266" y="71" font-size="12" fill="#191919">10 payloads</text>
+<rect x="351" y="62" width="10" height="10" rx="2" fill="#f47230"/>
+<text x="367" y="71" font-size="12" fill="#191919">100 payloads</text>
+<rect x="459" y="62" width="10" height="10" rx="2" fill="#00b894"/>
+<text x="475" y="71" font-size="12" fill="#191919">1000 payloads</text>
+<line x1="250.0" y1="84" x2="250.0" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="250.0" y="560" font-size="11" fill="#666666" text-anchor="middle">0.001 ms</text>
+<line x1="321.7" y1="84" x2="321.7" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="321.7" y="560" font-size="11" fill="#666666" text-anchor="middle">0.010 ms</text>
+<line x1="393.3" y1="84" x2="393.3" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="393.3" y="560" font-size="11" fill="#666666" text-anchor="middle">0.10 ms</text>
+<line x1="465.0" y1="84" x2="465.0" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="465.0" y="560" font-size="11" fill="#666666" text-anchor="middle">1.00 ms</text>
+<line x1="536.7" y1="84" x2="536.7" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="536.7" y="560" font-size="11" fill="#666666" text-anchor="middle">10.0 ms</text>
+<line x1="608.3" y1="84" x2="608.3" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="608.3" y="560" font-size="11" fill="#666666" text-anchor="middle">100 ms</text>
+<line x1="680.0" y1="84" x2="680.0" y2="544" stroke="#e6e6e6" stroke-width="1"/>
+<text x="680.0" y="560" font-size="11" fill="#666666" text-anchor="middle">1000 ms</text>
+<line x1="586.8" y1="90" x2="586.8" y2="544" stroke="#191919" stroke-width="1.5"/>
+<text x="590.8" y="540" font-size="11" fill="#191919">target 50.0 ms</text>
+<text x="240" y="116.0" font-size="12" fill="#191919" text-anchor="end">substring</text>
+<g>
+<title>substring, 10 payloads: 0.010 ms (upper 0.010 ms)</title>
+<path d="M250.0,92.0 h67.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-67.0 Z" fill="#257de0"/>
+<line x1="321.0" y1="98.0" x2="322.9" y2="98.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="322.9" y1="94.0" x2="322.9" y2="102.0" stroke="#666666" stroke-width="1.5"/>
+<text x="328.9" y="102" font-size="11" fill="#666666">0.010</text>
+</g>
+<g>
+<title>substring, 100 payloads: 0.086 ms (upper 0.19 ms)</title>
+<path d="M250.0,106.0 h134.7 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-134.7 Z" fill="#f47230"/>
+<line x1="388.7" y1="112.0" x2="414.0" y2="112.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="414.0" y1="108.0" x2="414.0" y2="116.0" stroke="#666666" stroke-width="1.5"/>
+<text x="420.0" y="116" font-size="11" fill="#666666">0.086</text>
+</g>
+<g>
+<title>substring, 1000 payloads: 0.80 ms (upper 1.60 ms)</title>
+<path d="M250.0,120.0 h203.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-203.9 Z" fill="#00b894"/>
+<line x1="457.9" y1="126.0" x2="479.6" y2="126.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="479.6" y1="122.0" x2="479.6" y2="130.0" stroke="#666666" stroke-width="1.5"/>
+<text x="485.6" y="130" font-size="11" fill="#666666">0.80</text>
+</g>
+<text x="240" y="172.0" font-size="12" fill="#191919" text-anchor="end">substring, no cache</text>
+<g>
+<title>substring, no cache, 10 payloads: 0.13 ms (upper 0.16 ms)</title>
+<path d="M250.0,148.0 h147.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-147.2 Z" fill="#257de0"/>
+<line x1="401.2" y1="154.0" x2="408.8" y2="154.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="408.8" y1="150.0" x2="408.8" y2="158.0" stroke="#666666" stroke-width="1.5"/>
+<text x="414.8" y="158" font-size="11" fill="#666666">0.13</text>
+</g>
+<g>
+<title>substring, no cache, 100 payloads: 1.29 ms (upper 1.50 ms)</title>
+<path d="M250.0,162.0 h218.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-218.8 Z" fill="#f47230"/>
+<line x1="472.8" y1="168.0" x2="477.6" y2="168.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="477.6" y1="164.0" x2="477.6" y2="172.0" stroke="#666666" stroke-width="1.5"/>
+<text x="483.6" y="172" font-size="11" fill="#666666">1.29</text>
+</g>
+<g>
+<title>substring, no cache, 1000 payloads: 12.2 ms (upper 13.7 ms)</title>
+<path d="M250.0,176.0 h288.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-288.9 Z" fill="#00b894"/>
+<line x1="542.9" y1="182.0" x2="546.4" y2="182.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="546.4" y1="178.0" x2="546.4" y2="186.0" stroke="#666666" stroke-width="1.5"/>
+<text x="552.4" y="186" font-size="11" fill="#666666">12.2</text>
+</g>
+<text x="240" y="228.0" font-size="12" fill="#191919" text-anchor="end">structured</text>
+<g>
+<title>structured, 10 payloads: 0.034 ms (upper 0.036 ms)</title>
+<path d="M250.0,204.0 h105.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-105.9 Z" fill="#257de0"/>
+<line x1="359.9" y1="210.0" x2="361.2" y2="210.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="361.2" y1="206.0" x2="361.2" y2="214.0" stroke="#666666" stroke-width="1.5"/>
+<text x="367.2" y="214" font-size="11" fill="#666666">0.034</text>
+</g>
+<g>
+<title>structured, 100 payloads: 0.11 ms (upper 0.11 ms)</title>
+<path d="M250.0,218.0 h142.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-142.2 Z" fill="#f47230"/>
+<text x="403.2" y="228" font-size="11" fill="#666666">0.11</text>
+</g>
+<g>
+<title>structured, 1000 payloads: 0.90 ms (upper 1.48 ms)</title>
+<path d="M250.0,232.0 h207.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-207.6 Z" fill="#00b894"/>
+<line x1="461.6" y1="238.0" x2="477.2" y2="238.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="477.2" y1="234.0" x2="477.2" y2="242.0" stroke="#666666" stroke-width="1.5"/>
+<text x="483.2" y="242" font-size="11" fill="#666666">0.90</text>
+</g>
+<text x="240" y="284.0" font-size="12" fill="#191919" text-anchor="end">structured, no cache</text>
+<g>
+<title>structured, no cache, 10 payloads: 0.75 ms (upper 1.72 ms)</title>
+<path d="M250.0,260.0 h201.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-201.9 Z" fill="#257de0"/>
+<line x1="455.9" y1="266.0" x2="482.0" y2="266.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="482.0" y1="262.0" x2="482.0" y2="270.0" stroke="#666666" stroke-width="1.5"/>
+<text x="488.0" y="270" font-size="11" fill="#666666">0.75</text>
+</g>
+<g>
+<title>structured, no cache, 100 payloads: 6.90 ms (upper 7.31 ms)</title>
+<path d="M250.0,274.0 h271.1 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-271.1 Z" fill="#f47230"/>
+<line x1="525.1" y1="280.0" x2="526.9" y2="280.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="526.9" y1="276.0" x2="526.9" y2="284.0" stroke="#666666" stroke-width="1.5"/>
+<text x="532.9" y="284" font-size="11" fill="#666666">6.90</text>
+</g>
+<g>
+<title>structured, no cache, 1000 payloads: 71.0 ms (upper 74.1 ms)</title>
+<path d="M250.0,288.0 h343.7 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-343.7 Z" fill="#00b894"/>
+<line x1="597.7" y1="294.0" x2="599.0" y2="294.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="599.0" y1="290.0" x2="599.0" y2="298.0" stroke="#666666" stroke-width="1.5"/>
+<text x="605.0" y="298" font-size="11" fill="#666666">71.0</text>
+</g>
+<text x="240" y="340.0" font-size="12" fill="#191919" text-anchor="end">0.9.0 default</text>
+<g>
+<title>0.9.0 default, 10 payloads: 0.044 ms (upper 0.047 ms)</title>
+<path d="M250.0,316.0 h114.1 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-114.1 Z" fill="#257de0"/>
+<line x1="368.1" y1="322.0" x2="369.8" y2="322.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="369.8" y1="318.0" x2="369.8" y2="326.0" stroke="#666666" stroke-width="1.5"/>
+<text x="375.8" y="326" font-size="11" fill="#666666">0.044</text>
+</g>
+<g>
+<title>0.9.0 default, 100 payloads: 0.19 ms (upper 0.21 ms)</title>
+<path d="M250.0,330.0 h159.7 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-159.7 Z" fill="#f47230"/>
+<line x1="413.7" y1="336.0" x2="415.9" y2="336.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="415.9" y1="332.0" x2="415.9" y2="340.0" stroke="#666666" stroke-width="1.5"/>
+<text x="421.9" y="340" font-size="11" fill="#666666">0.19</text>
+</g>
+<g>
+<title>0.9.0 default, 1000 payloads: 1.65 ms (upper 1.70 ms)</title>
+<path d="M250.0,344.0 h226.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-226.6 Z" fill="#00b894"/>
+<text x="487.4" y="354" font-size="11" fill="#666666">1.65</text>
+</g>
+<text x="240" y="396.0" font-size="12" fill="#191919" text-anchor="end">0.9.0 default, no cache</text>
+<g>
+<title>0.9.0 default, no cache, 10 payloads: 0.84 ms (upper 0.93 ms)</title>
+<path d="M250.0,372.0 h205.5 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-205.5 Z" fill="#257de0"/>
+<line x1="459.5" y1="378.0" x2="462.6" y2="378.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="462.6" y1="374.0" x2="462.6" y2="382.0" stroke="#666666" stroke-width="1.5"/>
+<text x="468.6" y="382" font-size="11" fill="#666666">0.84</text>
+</g>
+<g>
+<title>0.9.0 default, no cache, 100 payloads: 8.12 ms (upper 8.44 ms)</title>
+<path d="M250.0,386.0 h276.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-276.2 Z" fill="#f47230"/>
+<line x1="530.2" y1="392.0" x2="531.4" y2="392.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="531.4" y1="388.0" x2="531.4" y2="396.0" stroke="#666666" stroke-width="1.5"/>
+<text x="537.4" y="396" font-size="11" fill="#666666">8.12</text>
+</g>
+<g>
+<title>0.9.0 default, no cache, 1000 payloads: 82.9 ms (upper 84.7 ms)</title>
+<path d="M250.0,400.0 h348.5 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-348.5 Z" fill="#00b894"/>
+<text x="609.2" y="410" font-size="11" fill="#666666">82.9</text>
+</g>
+<text x="240" y="452.0" font-size="12" fill="#191919" text-anchor="end">embedding</text>
+<g>
+<title>embedding, 10 payloads: 7.46 ms (upper 9.54 ms)</title>
+<path d="M250.0,428.0 h273.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-273.6 Z" fill="#257de0"/>
+<line x1="527.6" y1="434.0" x2="535.2" y2="434.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="535.2" y1="430.0" x2="535.2" y2="438.0" stroke="#666666" stroke-width="1.5"/>
+<text x="541.2" y="438" font-size="11" fill="#666666">7.46</text>
+</g>
+<g>
+<title>embedding, 100 payloads: 5.48 ms (upper 5.65 ms)</title>
+<path d="M250.0,442.0 h263.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-263.9 Z" fill="#f47230"/>
+<text x="524.9" y="452" font-size="11" fill="#666666">5.48</text>
+</g>
+<g>
+<title>embedding, 1000 payloads: 7.55 ms (upper 7.91 ms)</title>
+<path d="M250.0,456.0 h273.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-273.9 Z" fill="#00b894"/>
+<line x1="527.9" y1="462.0" x2="529.4" y2="462.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="529.4" y1="458.0" x2="529.4" y2="466.0" stroke="#666666" stroke-width="1.5"/>
+<text x="535.4" y="466" font-size="11" fill="#666666">7.55</text>
+</g>
+<text x="240" y="508.0" font-size="12" fill="#191919" text-anchor="end">embedding, no cache</text>
+<g>
+<title>embedding, no cache, 10 payloads: 94.6 ms (upper 95.1 ms)</title>
+<path d="M250.0,484.0 h352.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-352.6 Z" fill="#257de0"/>
+<text x="612.8" y="494" font-size="11" fill="#666666">94.6</text>
+</g>
+<g>
+<title>embedding, no cache, 100 payloads: 895 ms (upper 904 ms)</title>
+<path d="M250.0,498.0 h422.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-422.6 Z" fill="#f47230"/>
+<text x="682.9" y="508" font-size="11" fill="#666666">895</text>
+</g>
+<text x="254" y="522" font-size="11" fill="#666666">not measured</text>
+</svg>

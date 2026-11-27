@@ -1,0 +1,500 @@
+{
+  "provmcp": "0.11.0",
+  "machine": "Darwin arm64, Python 3.11.18",
+  "quick": false,
+  "detectors": [
+    {
+      "detector": "substring",
+      "store_size": 10,
+      "cached": true,
+      "first_call_ms": 0.208,
+      "n": 200,
+      "p50": 0.0098,
+      "p95": 0.0104,
+      "p99": 0.0105,
+      "mean": 0.0098,
+      "max": 0.0128
+    },
+    {
+      "detector": "substring",
+      "store_size": 100,
+      "cached": true,
+      "first_call_ms": 1.392,
+      "n": 200,
+      "p50": 0.0863,
+      "p95": 0.1945,
+      "p99": 0.2137,
+      "mean": 0.1029,
+      "max": 0.3021
+    },
+    {
+      "detector": "substring",
+      "store_size": 1000,
+      "cached": true,
+      "first_call_ms": 17.88,
+      "n": 200,
+      "p50": 0.7971,
+      "p95": 1.5985,
+      "p99": 2.0067,
+      "mean": 0.8847,
+      "max": 2.3684
+    },
+    {
+      "detector": "substring",
+      "store_size": 10,
+      "cached": false,
+      "first_call_ms": 0.141,
+      "n": 200,
+      "p50": 0.1287,
+      "p95": 0.1645,
+      "p99": 0.2475,
+      "mean": 0.1332,
+      "max": 0.3125
+    },
+    {
+      "detector": "substring",
+      "store_size": 100,
+      "cached": false,
+      "first_call_ms": 1.361,
+      "n": 200,
+      "p50": 1.2863,
+      "p95": 1.4975,
+      "p99": 1.8471,
+      "mean": 1.3106,
+      "max": 2.0892
+    },
+    {
+      "detector": "substring",
+      "store_size": 1000,
+      "cached": false,
+      "first_call_ms": 12.328,
+      "n": 200,
+      "p50": 12.201,
+      "p95": 13.6668,
+      "p99": 17.9359,
+      "mean": 12.5383,
+      "max": 22.2608
+    },
+    {
+      "detector": "structured",
+      "store_size": 10,
+      "cached": true,
+      "first_call_ms": 0.827,
+      "n": 200,
+      "p50": 0.0342,
+      "p95": 0.0356,
+      "p99": 0.0449,
+      "mean": 0.0344,
+      "max": 0.0513
+    },
+    {
+      "detector": "structured",
+      "store_size": 100,
+      "cached": true,
+      "first_call_ms": 7.092,
+      "n": 200,
+      "p50": 0.1097,
+      "p95": 0.1132,
+      "p99": 0.1269,
+      "mean": 0.1103,
+      "max": 0.133
+    },
+    {
+      "detector": "structured",
+      "store_size": 1000,
+      "cached": true,
+      "first_call_ms": 78.458,
+      "n": 200,
+      "p50": 0.8971,
+      "p95": 1.4785,
+      "p99": 4.6847,
+      "mean": 1.0974,
+      "max": 8.9887
+    },
+    {
+      "detector": "structured",
+      "store_size": 10,
+      "cached": false,
+      "first_call_ms": 4.884,
+      "n": 200,
+      "p50": 0.7476,
+      "p95": 1.724,
+      "p99": 6.1316,
+      "mean": 0.9726,
+      "max": 12.7574
+    },
+    {
+      "detector": "structured",
+      "store_size": 100,
+      "cached": false,
+      "first_call_ms": 7.243,
+      "n": 200,
+      "p50": 6.8975,
+      "p95": 7.3056,
+      "p99": 7.4591,
+      "mean": 6.9636,
+      "max": 7.6073
+    },
+    {
+      "detector": "structured",
+      "store_size": 1000,
+      "cached": false,
+      "first_call_ms": 73.388,
+      "n": 200,
+      "p50": 70.9693,
+      "p95": 74.0675,
+      "p99": 91.9043,
+      "mean": 72.1438,
+      "max": 170.9786
+    },
+    {
+      "detector": "0.9.0 default",
+      "store_size": 10,
+      "cached": true,
+      "first_call_ms": 0.899,
+      "n": 200,
+      "p50": 0.0444,
+      "p95": 0.047,
+      "p99": 0.0576,
+      "mean": 0.0448,
+      "max": 0.0686
+    },
+    {
+      "detector": "0.9.0 default",
+      "store_size": 100,
+      "cached": true,
+      "first_call_ms": 8.462,
+      "n": 200,
+      "p50": 0.1926,
+      "p95": 0.2065,
+      "p99": 0.2238,
+      "mean": 0.1942,
+      "max": 0.2428
+    },
+    {
+      "detector": "0.9.0 default",
+      "store_size": 1000,
+      "cached": true,
+      "first_call_ms": 84.705,
+      "n": 200,
+      "p50": 1.6509,
+      "p95": 1.6954,
+      "p99": 1.7111,
+      "mean": 1.6521,
+      "max": 1.7221
+    },
+    {
+      "detector": "0.9.0 default",
+      "store_size": 10,
+      "cached": false,
+      "first_call_ms": 0.873,
+      "n": 200,
+      "p50": 0.8367,
+      "p95": 0.9253,
+      "p99": 1.0167,
+      "mean": 0.8527,
+      "max": 1.114
+    },
+    {
+      "detector": "0.9.0 default",
+      "store_size": 100,
+      "cached": false,
+      "first_call_ms": 8.75,
+      "n": 200,
+      "p50": 8.1205,
+      "p95": 8.4436,
+      "p99": 8.5893,
+      "mean": 8.1544,
+      "max": 8.9597
+    },
+    {
+      "detector": "0.9.0 default",
+      "store_size": 1000,
+      "cached": false,
+      "first_call_ms": 83.096,
+      "n": 200,
+      "p50": 82.8977,
+      "p95": 84.664,
+      "p99": 87.0234,
+      "mean": 83.5748,
+      "max": 159.6625
+    },
+    {
+      "detector": "embedding",
+      "store_size": 10,
+      "cached": true,
+      "first_call_ms": 5399.857,
+      "n": 30,
+      "p50": 7.4614,
+      "p95": 9.5353,
+      "p99": 13.9102,
+      "mean": 7.6662,
+      "max": 13.9102
+    },
+    {
+      "detector": "embedding",
+      "store_size": 100,
+      "cached": true,
+      "first_call_ms": 893.157,
+      "n": 30,
+      "p50": 5.4759,
+      "p95": 5.6507,
+      "p99": 5.7041,
+      "mean": 5.4961,
+      "max": 5.7041
+    },
+    {
+      "detector": "embedding",
+      "store_size": 1000,
+      "cached": true,
+      "first_call_ms": 8986.648,
+      "n": 30,
+      "p50": 7.546,
+      "p95": 7.9068,
+      "p99": 8.6852,
+      "mean": 7.6099,
+      "max": 8.6852
+    },
+    {
+      "detector": "embedding",
+      "store_size": 10,
+      "cached": false,
+      "first_call_ms": 95.706,
+      "n": 30,
+      "p50": 94.5675,
+      "p95": 95.0598,
+      "p99": 95.2046,
+      "mean": 94.4137,
+      "max": 95.2046
+    },
+    {
+      "detector": "embedding",
+      "store_size": 100,
+      "cached": false,
+      "first_call_ms": 894.165,
+      "n": 30,
+      "p50": 895.1939,
+      "p95": 904.1956,
+      "p99": 915.2443,
+      "mean": 896.1902,
+      "max": 915.2443
+    }
+  ],
+  "proxy_stdio": {
+    "calls": 500,
+    "direct": {
+      "n": 500,
+      "p50": 0.0535,
+      "p95": 0.0668,
+      "p99": 0.0826,
+      "mean": 0.2424,
+      "max": 94.0961
+    },
+    "through_proxy": {
+      "n": 500,
+      "p50": 0.4824,
+      "p95": 0.6981,
+      "p99": 0.7155,
+      "mean": 0.525,
+      "max": 20.549
+    },
+    "added_p50_ms": 0.4289,
+    "added_p95_ms": 0.6313,
+    "store_size_end": 500
+  },
+  "daemon_latency": {
+    "0.9.0 default": {
+      "detectors": [
+        "substring",
+        "structured"
+      ],
+      "calls": 500,
+      "concurrency": 8,
+      "sequential": {
+        "n": 500,
+        "p50": 0.9938,
+        "p95": 2.334,
+        "p99": 5.2797,
+        "mean": 1.1823,
+        "max": 9.9683
+      },
+      "concurrent": {
+        "n": 500,
+        "p50": 6.5686,
+        "p95": 8.1525,
+        "p99": 13.7952,
+        "mean": 6.7588,
+        "max": 17.4269
+      },
+      "throughput_calls_per_s": 1174.6,
+      "rss_idle_mb": 54.0,
+      "rss_after_mb": 51.4
+    },
+    "default + embedding": {
+      "detectors": [
+        "substring",
+        "structured",
+        "embedding"
+      ],
+      "calls": 100,
+      "concurrency": 8,
+      "sequential": {
+        "n": 100,
+        "p50": 12.3429,
+        "p95": 14.6028,
+        "p99": 18.8407,
+        "mean": 23.9575,
+        "max": 1150.5889
+      },
+      "concurrent": {
+        "n": 100,
+        "p50": 95.2033,
+        "p95": 96.8483,
+        "p99": 97.4,
+        "mean": 91.3106,
+        "max": 99.1591
+      },
+      "throughput_calls_per_s": 84.3,
+      "rss_idle_mb": 54.0,
+      "rss_after_mb": 463.9
+    }
+  },
+  "daemon_memory": {
+    "unbounded": {
+      "max_per_server": 1000000000,
+      "calls": 10000,
+      "samples": [
+        {
+          "calls": 0,
+          "rss_mb": 53.9
+        },
+        {
+          "calls": 1000,
+          "rss_mb": 58.4,
+          "store_size": 1000
+        },
+        {
+          "calls": 2000,
+          "rss_mb": 62.8,
+          "store_size": 2000
+        },
+        {
+          "calls": 3000,
+          "rss_mb": 67.1,
+          "store_size": 3000
+        },
+        {
+          "calls": 4000,
+          "rss_mb": 71.5,
+          "store_size": 4000
+        },
+        {
+          "calls": 5000,
+          "rss_mb": 75.9,
+          "store_size": 5000
+        },
+        {
+          "calls": 6000,
+          "rss_mb": 80.7,
+          "store_size": 6000
+        },
+        {
+          "calls": 7000,
+          "rss_mb": 85.0,
+          "store_size": 7000
+        },
+        {
+          "calls": 8000,
+          "rss_mb": 89.3,
+          "store_size": 8000
+        },
+        {
+          "calls": 9000,
+          "rss_mb": 79.9,
+          "store_size": 9000
+        },
+        {
+          "calls": 10000,
+          "rss_mb": 84.2,
+          "store_size": 10000
+        }
+      ]
+    },
+    "bounded": {
+      "max_per_server": 1000,
+      "calls": 10000,
+      "samples": [
+        {
+          "calls": 0,
+          "rss_mb": 54.0
+        },
+        {
+          "calls": 1000,
+          "rss_mb": 58.4,
+          "store_size": 1000
+        },
+        {
+          "calls": 2000,
+          "rss_mb": 62.8,
+          "store_size": 2000
+        },
+        {
+          "calls": 3000,
+          "rss_mb": 62.8,
+          "store_size": 2000
+        },
+        {
+          "calls": 4000,
+          "rss_mb": 62.9,
+          "store_size": 2000
+        },
+        {
+          "calls": 5000,
+          "rss_mb": 62.9,
+          "store_size": 2000
+        },
+        {
+          "calls": 6000,
+          "rss_mb": 36.9,
+          "store_size": 2000
+        },
+        {
+          "calls": 7000,
+          "rss_mb": 37.1,
+          "store_size": 2000
+        },
+        {
+          "calls": 8000,
+          "rss_mb": 37.1,
+          "store_size": 2000
+        },
+        {
+          "calls": 9000,
+          "rss_mb": 37.1,
+          "store_size": 2000
+        },
+        {
+          "calls": 10000,
+          "rss_mb": 36.8,
+          "store_size": 2000
+        }
+      ]
+    }
+  },
+  "embedding_probe": {
+    "rss_start_mb": 35.2,
+    "import_s": 3.6,
+    "rss_import_mb": 393.5,
+    "load_s": 0.46,
+    "rss_loaded_mb": 362.2,
+    "encode_one_sentence_ms": {
+      "n": 50,
+      "p50": 4.3728,
+      "p95": 6.2558,
+      "p99": 159.7842,
+      "mean": 7.7701,
+      "max": 159.7842
+    },
+    "rss_after_mb": 497.9
+  }
+}

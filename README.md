@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 10 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a full evaluation of every detection strategy at four levels with confidence intervals and figures (Week 10). 216 tests.
+**Status:** Week 11 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11). 231 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 216 passed
+pytest -q                           # 231 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -57,6 +57,8 @@ provmcp audit -c configs/dev.toml                       # 4. see every decision
 | `warn_and_confirm` (default) | Hold. An approval is created; the user approves or denies it from a terminal. An approval allows the identical call once. |
 | `audit` | Forward and log. |
 
+The provenance store keeps at most 1,000 records per source server (`[proxy] provenance_max_per_server`), so memory stays bounded and one server cannot flush another's records; `provenance_ttl_seconds` adds expiry by age.
+
 Policies can be overridden per (source, target) server pair, and trusted values (for example your own contacts) can be allowlisted. See `configs/dev.toml`.
 
 Detection defaults (since 0.9.0) are calibrated on a held-out split and checked on real Claude traffic: substring 0.428 and structured 0.85, each with its own threshold, and tool descriptions (`tools/list`) tracked as a provenance source. `thresholds = {}` and `track_tool_metadata = false` restore the Week 7 behaviour. The embedding detector is calibrated (see `docs/results/calibration-week9.md`) but opt-in. See `docs/week-09.md`.
@@ -81,6 +83,9 @@ python scripts/import_injecagent.py --repo ~/Projects/InjecAgent
 provmcp agent-replay --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
   -s benchmarks/attacks -s benchmarks/benign -s benchmarks/msb \
   --thresholds none --no-track-tool-metadata     # Week 7 settings; drop for the defaults
+
+# performance: per-detector latency, proxy overhead, daemon memory (no model calls)
+python scripts/bench_week11.py --quick
 
 # the full evaluation: every strategy, four levels, intervals, figures (no model calls)
 python scripts/evaluate_week10.py --run haiku=logs/agent-cache-haiku-week10.jsonl
@@ -110,6 +115,7 @@ src/provmcp/
   server.py           HTTP daemon (FastAPI)
   bridge.py           stdio bridges (daemon and direct mode)
   evaluation.py       Week 10 strategies, levels and Wilson intervals
+  perf.py             Week 11 latency and memory benchmarks
   svgchart.py         dependency-free SVG charts for the reports
   agent/              LLM agent harness: backends, episode runner, suite + report
   importers/          InjecAgent -> multi-server scenarios
@@ -130,12 +136,12 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week10.sh
+bash scripts/verify_week11.sh
 ```
 
 ## Known limitations
 
-See `docs/week-07.md` to `docs/week-09.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no session scope or expiry yet; only `tools/call` is inspected; encoded, reformatted or paraphrased data and pure control-flow hijacks are not detected; and provenance sees data flow, not user intent, so flows the user asked for are flagged too.
+See `docs/week-07.md` to `docs/week-09.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no per-session scope (it is bounded per server since 0.11); only `tools/call` is inspected; encoded, reformatted or paraphrased data and pure control-flow hijacks are not detected; and provenance sees data flow, not user intent, so flows the user asked for are flagged too.
 
 ## License
 

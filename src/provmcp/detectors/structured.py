@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
+from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -154,11 +155,14 @@ class StructuredFieldDetector:
             return []
 
         best_by_source: dict[str, Field] = {}
-        for payload in store._payloads.values():  # noqa: SLF001
+        for payload in store.payloads():
             source_id = payload.tag.server_id
             if source_id == target_server_id:
                 continue
-            shared = outbound & self._filter(extract_fields(payload.content))
+            fields = store.derived(
+                payload.tag.tag_id, "structured:fields", partial(extract_fields, payload.content)
+            )
+            shared = outbound & self._filter(fields)
             for field in shared:
                 prior = best_by_source.get(source_id)
                 if prior is None or _rank(field) > _rank(prior):
