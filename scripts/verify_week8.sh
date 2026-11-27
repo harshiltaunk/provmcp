@@ -13,7 +13,7 @@ export HF_HUB_OFFLINE=1
 export LC_ALL=C
 
 VERSION="0.8.0"
-EXPECTED_TESTS=175
+EXPECTED_TESTS=182
 SUITES="-s benchmarks/attacks -s benchmarks/benign -s benchmarks/msb"
 
 pass=0; fail=0; skip=0
@@ -84,6 +84,10 @@ for row in \
   "| provmcp-benign | strict | 4 | 75.0% | 25.0% | 25.0% |"; do
   check "row: ${row:0:60}..." grep -qF -- "$row" "$tmp/scripted.md"
 done
+provmcp agent-report --cache "$tmp/cache.jsonl" $SUITES --out "$tmp/rescored.md" >/dev/null 2>&1
+check "agent-report rescoring reproduces the live scores" sh -c \
+  "sed -n '/## Attack success/,/Tokens:/p' '$tmp/scripted.md' > '$tmp/a1'; \
+   sed -n '/## Attack success/,/Tokens:/p' '$tmp/rescored.md' > '$tmp/b1'; diff -q '$tmp/a1' '$tmp/b1'"
 saved="docs/results/baseline-week8-scripted.md"
 if [ -f "$saved" ]; then
   check "$saved matches the rerun" sh -c \
@@ -104,6 +108,7 @@ echo "== 8. Saved LLM baseline =="
 llm=$(ls docs/results/baseline-week8-*.md 2>/dev/null | grep -v scripted | head -1)
 if [ -n "$llm" ]; then
   check "LLM report $llm has an attack table" grep -qF "## Attack success" "$llm"
+  check "LLM report $llm uses the current oracle (rescored)" grep -qF "(rescored)" "$llm"
 else
   skp "no LLM baseline in docs/results yet (see docs/week-08.md)"
 fi

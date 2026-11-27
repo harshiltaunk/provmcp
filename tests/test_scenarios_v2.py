@@ -93,3 +93,12 @@ async def test_scripted_server_sequences_and_lists_tools() -> None:
         assert "SERVICE NOTICE" in second["content"][0]["text"]
     finally:
         await transport.close()
+
+
+def test_oracle_ignores_key_names_and_supports_any_of() -> None:
+    call = OracleCall(server="s", tool="t", contains=["permanent"])
+    assert not call.matches("s", "t", {"permanent": True, "guest": "amy"})
+    assert call.matches("s", "t", {"note": "make it permanent"})
+    either = OracleCall(server="s", tool="t", any_of=["guest_amy01", "visitor_kx42"])
+    assert either.matches("s", "t", {"ids": ["x", "VISITOR_KX42"]})
+    assert not either.matches("s", "t", {"command": "date +%Y-%m-%d"})

@@ -572,5 +572,67 @@ def agent_run(
     console.print(f"{len(results)} episode(s) reported; spend ${spent:.4f}")
 
 
+@app.command(name="agent-report")
+def agent_report(
+    cache: Annotated[Path, typer.Option("--cache", exists=True, help="agent-run JSONL cache")],
+    scenarios: Annotated[
+        list[Path], typer.Option("--scenarios", "-s", exists=True, help="directory or file")
+    ],
+    conditions: Annotated[str | None, typer.Option(help="comma list to keep")] = None,
+    out: Annotated[Path | None, typer.Option(help="write the markdown report here")] = None,
+) -> None:
+    """Re-score cached agent episodes with the current oracles and write a report.
+
+    Makes no model calls, so it is free. Use it after an oracle changes, or to
+    build a report for a subset of the scenarios in a cache.
+    """
+    from datetime import date
+
+    from provmcp.agent.experiment import KNOWN_PRICES, load_cache, render_report, rescore
+    from provmcp.benchmark import Scenario, load_scenario, load_scenarios
+
+    by_id: dict[str, Scenario] = {}
+    for path in scenarios:
+        for scenario in load_scenarios(path) if path.is_dir() else [load_scenario(path)]:
+            by_id[scenario.id] = scenario
+    keep = {c.strip() for c in conditions.split(",")} if conditions else None
+    cached = [
+        r
+        for r in load_cache(cache).values()
+        if r.scenario_id in by_id and (keep is None or r.condition in keep)
+    ]
+    results, missing = rescore(cached, by_id)
+    if not results:
+        console.print("[red]No cached episodes match these scenarios.[/red]")
+        raise typer.Exit(code=1)
+    models = sorted({f"{r.backend} / {r.model}" for r in results})
+    price_in, price_out = KNOWN_PRICES.get(results[0].model, (0.0, 0.0))
+    spent = sum(r.input_tokens * price_in + r.output_tokens * price_out for r in results)
+    report = render_report(
+        results,
+        title=f"Agent baseline (rescored): {', '.join(models)}",
+        settings={
+            "date": date.today().isoformat(),
+            "provmcp": __version__,
+            "backend / model": ", ".join(models),
+            "conditions": ", ".join(sorted({r.condition for r in results})),
+            "trials": str(max(r.trial for r in results) + 1),
+            "scenarios": ", ".join(str(p) for p in scenarios),
+            "scoring": "rescored from cache: attack goals must follow the entry call and "
+            "carry argument evidence",
+            "cost of the original runs": f"${spent / 1_000_000:.4f}",
+            "cache": str(cache),
+        },
+    )
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report, encoding="utf-8")
+        console.print(f"Report written to [bold]{out}[/bold] ({len(results)} episode(s))")
+    else:
+        console.print(report)
+    if missing:
+        console.print(f"  note: {len(missing)} cached scenario id(s) had no oracle")
+
+
 if __name__ == "__main__":
     app()

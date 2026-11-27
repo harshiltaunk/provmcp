@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 8 of 16. Live enforcement with strict / warn-and-confirm / audit policies, out-of-band approvals and an audit log (Week 7), plus an agent harness that measures attack success with real LLMs on our scenarios, MCPSecBench-derived cases and imported InjecAgent cases (Week 8). 175 tests.
+**Status:** Week 8 of 16. Live enforcement with strict / warn-and-confirm / audit policies, out-of-band approvals and an audit log (Week 7), plus an agent harness that measures attack success with real LLMs on our scenarios, MCPSecBench-derived cases and imported InjecAgent cases (Week 8). 182 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 175 passed
+pytest -q                           # 182 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -74,6 +74,10 @@ provmcp agent-run -s benchmarks/attacks --backend ollama --model llama3.1:8b
 
 # InjecAgent cases as multi-server scenarios (MIT; clone it first)
 python scripts/import_injecagent.py --repo ~/Projects/InjecAgent
+
+# rescore a cache with the current oracles and rebuild a report (no model calls)
+provmcp agent-report --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
+  -s benchmarks/external/injecagent --out docs/results/baseline-week8-haiku-injecagent.md
 ```
 
 `audit` gives the no-defense baseline and ProvMCP's detection rate from one

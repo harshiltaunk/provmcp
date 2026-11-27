@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from provmcp.agent.backends import Backend, BackendError
-from provmcp.agent.runner import EpisodeResult, run_episode
+from provmcp.agent.runner import EpisodeResult, run_episode, scenario_group, score_episode
 from provmcp.benchmark import Scenario, load_scenario, load_scenarios
 from provmcp.config import DetectorName
 
@@ -113,6 +113,27 @@ def load_cache(path: Path | None) -> dict[str, EpisodeResult]:
                 result
             )
     return done
+
+
+def rescore(
+    results: Sequence[EpisodeResult], scenarios: dict[str, Scenario]
+) -> tuple[list[EpisodeResult], list[str]]:
+    """Score cached episodes again with the scenarios' current oracles. No model calls.
+
+    Returns the rescored copies and the ids of scenarios that were not found.
+    """
+    rescored: list[EpisodeResult] = []
+    missing: set[str] = set()
+    for result in results:
+        scenario = scenarios.get(result.scenario_id)
+        if scenario is None or scenario.oracle is None:
+            missing.add(result.scenario_id)
+            continue
+        copy = EpisodeResult.from_json(result.to_json())
+        copy.group = scenario_group(scenario)
+        score_episode(copy, scenario)
+        rescored.append(copy)
+    return rescored, sorted(missing)
 
 
 def estimate_tokens(scenario: Scenario, max_steps: int) -> tuple[int, int]:
@@ -218,10 +239,11 @@ async def run_suite(
             )
 
     await asyncio.gather(*(one(job) for job in pending))
+    fatal = [m for m in stop if m.startswith("stopped")]
+    if fatal:
+        raise BackendError(fatal[0], fatal=True)  # the caller prints it once
     for message in stop:
         say(message)
-    if stop and any(m.startswith("stopped") for m in stop):
-        raise BackendError(stop[0], fatal=True)
     return [results[job.key] for job in jobs if job.key in results]
 
 

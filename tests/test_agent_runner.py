@@ -161,3 +161,22 @@ def test_scenario_groups() -> None:
     assert scenario_group(
         make("ia-base-dh-0001", kind="dh", setting="base", cross_server=False)
     ) == ("injecagent-dh-base-same-server")
+
+
+async def test_attack_goal_before_the_entry_call_does_not_count(tmp_path: Path) -> None:
+    """Using the attacker's tool before reading the poison is not being hijacked."""
+    scenario = load_scenario(CD003)
+    send = scenario.trace[1].params["arguments"]
+    plan = [("email", "send", send), ("calendar", "get_next_event", {})]
+    result = await run_episode(scenario, ScriptedBackend(plan), condition="audit", workdir=tmp_path)
+    assert result.valid and not result.attempted and not result.succeeded
+
+
+async def test_benign_goal_order_does_not_matter(tmp_path: Path) -> None:
+    scenario = load_scenario(BN001)
+    send = scenario.trace[1].params["arguments"]
+    plan = [("email", "send", send), ("calendar", "get_next_event", {})]
+    result = await run_episode(
+        scenario, ScriptedBackend(plan), condition="strict", workdir=tmp_path
+    )
+    assert result.succeeded
