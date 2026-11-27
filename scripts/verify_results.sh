@@ -72,12 +72,12 @@ else
 fi
 
 echo "== 5. Reproducible from current code =="
-python scripts/evaluate_corpus.py --embedding-threshold 0.72 --out "$tmp/t072.md" >/dev/null 2>&1
+python scripts/evaluate_corpus.py --split benchmarks/splits/week6.json --embedding-threshold 0.72 --out "$tmp/t072.md" >/dev/null 2>&1
 check "eval-week6-t072.md reproduces exactly" diff -q "$tmp/t072.md" "$DIR/eval-week6-t072.md"
 if python -c "import sentence_transformers" >/dev/null 2>&1; then
-  python scripts/evaluate_corpus.py --embedding-threshold 0.52 --out "$tmp/t052.md" >/dev/null 2>&1
+  python scripts/evaluate_corpus.py --split benchmarks/splits/week6.json --embedding-threshold 0.52 --out "$tmp/t052.md" >/dev/null 2>&1
   check "eval-week6-t052.md reproduces exactly" diff -q "$tmp/t052.md" "$DIR/eval-week6-t052.md"
-  python scripts/sweep_embedding_threshold.py 2>/dev/null >"$tmp/sweep.txt"
+  python scripts/sweep_embedding_threshold.py --split benchmarks/splits/week6.json 2>/dev/null >"$tmp/sweep.txt"
   check "sweep-week6.txt reproduces exactly"    diff -q "$tmp/sweep.txt" "$DIR/sweep-week6.txt"
 else
   skp "embedding reruns (sentence-transformers not installed)"

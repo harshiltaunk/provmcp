@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "provmcp"
-version = "0.8.0"
+version = "0.9.0"
 description = "Runtime detection of cross-server confused-deputy attacks in MCP."
 readme = "README.md"
 requires-python = ">=3.11"

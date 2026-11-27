@@ -28,7 +28,7 @@ def _all() -> list[Scenario]:
 
 def test_every_bundled_scenario_can_drive_an_agent() -> None:
     scenarios = _all()
-    assert len(scenarios) == 11
+    assert len(scenarios) == 27
     for scenario in scenarios:
         assert scenario.task, scenario.id
         assert scenario.oracle is not None and scenario.oracle.goal, scenario.id

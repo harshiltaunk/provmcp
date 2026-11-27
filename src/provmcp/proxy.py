@@ -10,7 +10,10 @@ Request flow for one host message:
 3. Otherwise the request is forwarded to the backing server.
 4. Results of content-bearing methods (`tools/call`, `resources/read`,
    `prompts/get`) are tagged with their origin and recorded in the provenance
-   store, which later inspections compare against.
+   store, which later inspections compare against. With
+   `track_tool_metadata`, `tools/list` results (tool names, descriptions and
+   schemas) are recorded too, because a server can plant instructions in its
+   tool descriptions, and another server can try to collect them (Week 9).
 
 The Router owns one Transport per connected server, keyed by server_id.
 """
@@ -99,11 +102,13 @@ class Proxy:
         store: ProvenanceStore,
         router: Router,
         inspector: Inspector | None = None,
+        track_tool_metadata: bool = False,
     ) -> None:
         self.registry = registry
         self.store = store
         self.router = router
         self.inspector = inspector
+        self.track_tool_metadata = track_tool_metadata
 
     async def handle(self, request: RpcRequest) -> RpcResponse:
         record = self.registry.get(request.target_server_id)
@@ -133,7 +138,9 @@ class Proxy:
         log.debug("forwarding %s to %s", request.method, record.server_id)
         raw_result = await transport.call(request.method, request.params)
 
-        if request.method in RECORDED_METHODS:
+        if request.method in RECORDED_METHODS or (
+            self.track_tool_metadata and request.method == "tools/list"
+        ):
             tag = OriginTag(server_id=record.server_id, tool_name=request.method)
             self.store.record(TaggedPayload(content=raw_result, tag=tag))
 

@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 
 from provmcp import __version__
-from provmcp.config import load_config
+from provmcp.config import DetectionConfig, load_config
 from provmcp.detectors.base import Detector
 from provmcp.proxy import RpcRequest
 from provmcp.server import build_app
@@ -396,6 +396,53 @@ def approvals_deny(
     _decide(config, approval_id, approve=False)
 
 
+def _detection_options(
+    detectors: str, thresholds: str, substring_score: str, track_tool_metadata: bool | None
+) -> DetectionConfig:
+    """Build a [detection] section from CLI options; unset options keep the defaults.
+
+    `thresholds`: '' keeps the calibrated defaults, 'none' means one global
+    threshold (Week 7 behaviour), otherwise 'substring=0.43,structured=0.85'.
+    """
+    data: dict[str, object] = {"detectors": [d.strip() for d in detectors.split(",") if d.strip()]}
+    if thresholds.strip().lower() == "none":
+        data["thresholds"] = {}
+    elif thresholds.strip():
+        parsed: dict[str, float] = {}
+        for item in (t.strip() for t in thresholds.split(",")):
+            if not item:
+                continue
+            name, sep, value = item.partition("=")
+            if not sep:
+                raise typer.BadParameter(f"thresholds need name=value, got {item!r}")
+            try:
+                parsed[name.strip()] = float(value)
+            except ValueError as exc:
+                raise typer.BadParameter(f"not a number in {item!r}") from exc
+        data["thresholds"] = parsed
+    if substring_score:
+        data["substring_score"] = substring_score
+    if track_tool_metadata is not None:
+        data["track_tool_metadata"] = track_tool_metadata
+    try:
+        return DetectionConfig.model_validate(data)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+def _describe_detection(detection: DetectionConfig, threshold: float) -> str:
+    gates = (
+        ", ".join(f"{k}={v}" for k, v in detection.thresholds.items())
+        if detection.thresholds
+        else f"all={threshold}"
+    )
+    return (
+        f"{', '.join(detection.detectors)}; thresholds {gates}; "
+        f"substring score {detection.substring_score}; "
+        f"tool metadata {'tracked' if detection.track_tool_metadata else 'not tracked'}"
+    )
+
+
 @app.command(name="agent-run")
 def agent_run(
     scenarios: Annotated[
@@ -412,6 +459,13 @@ def agent_run(
     include_same_server: Annotated[bool, typer.Option("--include-same-server")] = False,
     detectors: Annotated[str, typer.Option()] = "substring,structured",
     threshold: Annotated[float, typer.Option(min=0.0, max=1.0)] = 0.6,
+    thresholds: Annotated[
+        str, typer.Option(help="'' = calibrated defaults, 'none' = one global, or name=value,...")
+    ] = "",
+    substring_score: Annotated[str, typer.Option(help="longest | coverage (default longest)")] = "",
+    track_tool_metadata: Annotated[
+        bool | None, typer.Option("--track-tool-metadata/--no-track-tool-metadata")
+    ] = None,
     max_steps: Annotated[int, typer.Option(min=1)] = 8,
     concurrency: Annotated[int, typer.Option(min=1)] = 4,
     max_usd: Annotated[float | None, typer.Option(help="stop when spend reaches this")] = None,
@@ -448,21 +502,14 @@ def agent_run(
     )
     from provmcp.agent.runner import CONDITIONS, SYSTEM_PROMPT
     from provmcp.benchmark import Scenario
-    from provmcp.config import DetectorName
 
     logging.getLogger("provmcp").setLevel(logging.ERROR)  # the report carries the decisions
     condition_list = [c.strip() for c in conditions.split(",") if c.strip()]
     unknown = [c for c in condition_list if c not in CONDITIONS]
     if unknown:
         raise typer.BadParameter(f"unknown condition(s) {unknown}; use {sorted(CONDITIONS)}")
-    allowed: dict[str, DetectorName] = {
-        "substring": "substring",
-        "structured": "structured",
-        "embedding": "embedding",
-    }
-    detector_list = [allowed[d.strip()] for d in detectors.split(",") if d.strip() in allowed]
-    if not detector_list:
-        raise typer.BadParameter("no valid detectors; use substring, structured, embedding")
+    detection = _detection_options(detectors, thresholds, substring_score, track_tool_metadata)
+    detector_list = detection.detectors
     if backend in {"anthropic", "ollama"} and not model:
         raise typer.BadParameter(f"--model is required for --backend {backend}")
     model_name = model or "scripted"
@@ -532,6 +579,7 @@ def agent_run(
                 cache=cache_path,
                 detectors=detector_list,
                 threshold=threshold,
+                detection=detection,
                 max_steps=max_steps,
                 concurrency=1 if backend == "scripted" else concurrency,
                 price_in=p_in,
@@ -554,7 +602,7 @@ def agent_run(
             "backend / model": f"{backend} / {model_name}",
             "conditions": ", ".join(condition_list),
             "trials": str(trials),
-            "detectors / threshold": f"{', '.join(detector_list)} / {threshold}",
+            "detection": _describe_detection(detection, threshold),
             "max steps": str(max_steps),
             "scenarios": ", ".join(str(p) for p in scenarios)
             + (f" (limit {limit} per path, seed {seed})" if limit else ""),
@@ -632,6 +680,67 @@ def agent_report(
         console.print(report)
     if missing:
         console.print(f"  note: {len(missing)} cached scenario id(s) had no oracle")
+
+
+@app.command(name="agent-replay")
+def agent_replay(
+    cache: Annotated[Path, typer.Option("--cache", exists=True, help="agent-run JSONL cache")],
+    scenarios: Annotated[
+        list[Path], typer.Option("--scenarios", "-s", exists=True, help="directory or file")
+    ],
+    conditions: Annotated[str, typer.Option(help="comma list to replay")] = "audit",
+    detectors: Annotated[str, typer.Option()] = "substring,structured",
+    threshold: Annotated[float, typer.Option(min=0.0, max=1.0)] = 0.6,
+    thresholds: Annotated[
+        str, typer.Option(help="'' = calibrated defaults, 'none' = one global, or name=value,...")
+    ] = "",
+    substring_score: Annotated[str, typer.Option(help="longest | coverage (default longest)")] = "",
+    track_tool_metadata: Annotated[
+        bool | None, typer.Option("--track-tool-metadata/--no-track-tool-metadata")
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="write the markdown report here")] = None,
+) -> None:
+    """Replay cached agent runs through a detector configuration (no model calls).
+
+    Measures false alarms on real model traffic and detection of the attacks
+    the model actually attempted, for any detector settings.
+    """
+    from provmcp.agent.experiment import load_cache
+    from provmcp.agent.replay import render_replay_report, replay_all
+    from provmcp.benchmark import Scenario, load_scenario, load_scenarios
+
+    detection = _detection_options(detectors, thresholds, substring_score, track_tool_metadata)
+    by_id: dict[str, Scenario] = {}
+    for path in scenarios:
+        for scenario in load_scenarios(path) if path.is_dir() else [load_scenario(path)]:
+            by_id[scenario.id] = scenario
+    keep = {c.strip() for c in conditions.split(",") if c.strip()}
+    cached = [
+        r for r in load_cache(cache).values() if r.scenario_id in by_id and r.condition in keep
+    ]
+    if not cached:
+        console.print("[red]No cached episodes match these scenarios and conditions.[/red]")
+        raise typer.Exit(code=1)
+    replayed = replay_all(cached, by_id, detection, threshold=threshold)
+    models = sorted({f"{r.backend} / {r.model}" for r in cached})
+    report = render_replay_report(
+        replayed,
+        title="Replay of cached agent runs",
+        settings={
+            "provmcp": __version__,
+            "runs": ", ".join(models),
+            "conditions replayed": ", ".join(sorted(keep)),
+            "detection": _describe_detection(detection, threshold),
+            "scenarios": ", ".join(str(p) for p in scenarios),
+            "cache": str(cache),
+        },
+    )
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report, encoding="utf-8")
+        console.print(f"Report written to [bold]{out}[/bold] ({len(replayed)} episode(s))")
+    else:
+        console.print(report)
 
 
 if __name__ == "__main__":

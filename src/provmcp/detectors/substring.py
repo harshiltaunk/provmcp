@@ -7,6 +7,16 @@ false positives from coincidence. The gate is `min_run_length`.
 
 This detector catches direct, unparaphrased propagation. Paraphrased or
 restructured content is the job of the embedding detector in Week 5.
+
+Scoring (`score_mode`):
+
+- `longest` (Weeks 4-8): only the longest shared run counts,
+  `len / (len + scale)`. A whole paragraph copied word for word scores no
+  higher than its longest word, so verbatim copies of prose stay below a
+  0.6 threshold.
+- `coverage` (Week 9): the total length of all distinct shared runs from one
+  source server counts, `covered / (covered + scale)`. Copying more distinctive
+  content from a server raises the score.
 """
 
 from __future__ import annotations
@@ -14,18 +24,30 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Literal
 
 from provmcp.policy import InfluenceFinding
 from provmcp.provenance import ProvenanceStore, TaggedPayload
 
+ScoreMode = Literal["longest", "coverage"]
+
 
 def _flatten_to_text(obj: Any) -> str:
-    """Render arbitrary JSON-RPC content as a single searchable string."""
+    """Render JSON-RPC content as one searchable string of its *values*.
+
+    Key names are left out (Week 9): a schema key such as `reference` or
+    `properties` must not count as content copied from another server.
+    Strings, numbers and booleans are joined with newlines, so runs never
+    span two values.
+    """
     if isinstance(obj, str):
         return obj
+    if isinstance(obj, dict):
+        return "\n".join(_flatten_to_text(value) for value in obj.values())
+    if isinstance(obj, (list, tuple)):
+        return "\n".join(_flatten_to_text(item) for item in obj)
     if isinstance(obj, (int, float, bool)) or obj is None:
-        return str(obj)
+        return "" if obj is None else str(obj)
     try:
         return json.dumps(obj, ensure_ascii=False, sort_keys=True)
     except (TypeError, ValueError):
@@ -53,11 +75,19 @@ class SubstringDetector:
 
     name = "substring"
 
-    def __init__(self, min_run_length: int = 8, confidence_scale: int = 32) -> None:
+    def __init__(
+        self,
+        min_run_length: int = 8,
+        confidence_scale: int = 32,
+        score_mode: ScoreMode = "longest",
+    ) -> None:
         if min_run_length < 2:
             raise ValueError("min_run_length must be >= 2")
+        if score_mode not in ("longest", "coverage"):
+            raise ValueError(f"unknown score_mode {score_mode!r}")
         self.min_run_length = min_run_length
         self.confidence_scale = confidence_scale
+        self.score_mode: ScoreMode = score_mode
 
     def scan(
         self,
@@ -69,25 +99,26 @@ class SubstringDetector:
         """Return a finding per source server whose content shows up here."""
         target_text = _flatten_to_text(outbound_params)
         findings: list[InfluenceFinding] = []
-        seen_by_source: dict[str, str] = {}
+        runs_by_source: dict[str, set[str]] = {}
 
         for payload in self._iter_other_server_payloads(store, target_server_id):
-            match = self._longest_shared_run(payload, target_text)
-            if match is None:
-                continue
-            source = payload.tag.server_id
-            # Keep the strongest match per source to avoid duplicate findings.
-            if source not in seen_by_source or len(match) > len(seen_by_source[source]):
-                seen_by_source[source] = match
+            shared = self._shared_runs(payload, target_text)
+            if shared:
+                runs_by_source.setdefault(payload.tag.server_id, set()).update(shared)
 
-        for source, match in seen_by_source.items():
+        for source, runs in runs_by_source.items():
+            longest = max(runs, key=lambda r: (len(r), r))
+            if self.score_mode == "coverage":
+                confidence = self._score_length(sum(len(r) for r in runs))
+            else:
+                confidence = self._score_length(len(longest))
             findings.append(
                 InfluenceFinding(
                     source_server_id=source,
                     target_server_id=target_server_id,
-                    confidence=self._score(match),
+                    confidence=confidence,
                     detector=self.name,
-                    excerpt=match[:120],
+                    excerpt=longest[:120],
                 )
             )
         return findings
@@ -101,16 +132,18 @@ class SubstringDetector:
             if payload.tag.server_id != target_server_id:
                 yield payload
 
-    def _longest_shared_run(self, payload: TaggedPayload, target_text: str) -> str | None:
+    def _shared_runs(self, payload: TaggedPayload, target_text: str) -> set[str]:
         source_text = _flatten_to_text(payload.content)
         runs = _extract_runs(source_text, self.min_run_length)
-        best: str | None = None
-        for run in runs:
-            if run in target_text and (best is None or len(run) > len(best)):
-                best = run
-        return best
+        return {run for run in runs if run in target_text}
+
+    def _longest_shared_run(self, payload: TaggedPayload, target_text: str) -> str | None:
+        shared = self._shared_runs(payload, target_text)
+        return max(shared, key=lambda r: (len(r), r)) if shared else None
+
+    def _score_length(self, length: int) -> float:
+        # Smooth linear-to-asymptote mapping from matched length to [0, 1).
+        return min(0.99, length / (length + self.confidence_scale))
 
     def _score(self, match: str) -> float:
-        # Smooth linear-to-asymptote mapping from match length to [0, 1).
-        length = len(match)
-        return min(0.99, length / (length + self.confidence_scale))
+        return self._score_length(len(match))

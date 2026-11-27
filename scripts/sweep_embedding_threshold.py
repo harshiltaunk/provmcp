@@ -6,6 +6,7 @@ TP, FP, TN, FN, precision, and recall so we can pick the operating point.
 
 Usage:
     python scripts/sweep_embedding_threshold.py
+    python scripts/sweep_embedding_threshold.py --split benchmarks/splits/week6.json
 
 Requires `sentence-transformers` to be installed:
     pip install 'provmcp[embed]'
@@ -13,6 +14,8 @@ Requires `sentence-transformers` to be installed:
 
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
 
 from provmcp.benchmark import BenchmarkRunner, load_scenarios
@@ -23,6 +26,14 @@ ATTACKS = REPO / "benchmarks" / "attacks"
 BENIGN = REPO / "benchmarks" / "benign"
 
 
+def split_ids(path: Path | None) -> set[str] | None:
+    """Scenario ids listed in a split file (every list in it), or None for all."""
+    if path is None:
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {sid for value in data.values() if isinstance(value, list) for sid in value}
+
+
 def precision_recall(tp: int, fp: int, fn: int) -> tuple[float, float]:
     precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0
@@ -30,8 +41,12 @@ def precision_recall(tp: int, fp: int, fn: int) -> tuple[float, float]:
 
 
 def main() -> None:
-    attacks = load_scenarios(ATTACKS)
-    benign = load_scenarios(BENIGN)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--split", type=Path, default=None, help="only the ids in this split file")
+    args = parser.parse_args()
+    keep = split_ids(args.split)
+    attacks = [s for s in load_scenarios(ATTACKS) if keep is None or s.id in keep]
+    benign = [s for s in load_scenarios(BENIGN) if keep is None or s.id in keep]
     print(f"Loaded {len(attacks)} attack scenario(s) and {len(benign)} benign scenario(s)")
     print()
     print(f"{'thresh':>8}  {'TP':>3} {'FP':>3} {'TN':>3} {'FN':>3}   P      R")

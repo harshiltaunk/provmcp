@@ -20,7 +20,7 @@ from pathlib import Path
 from provmcp.agent.backends import Backend, BackendError
 from provmcp.agent.runner import EpisodeResult, run_episode, scenario_group, score_episode
 from provmcp.benchmark import Scenario, load_scenario, load_scenarios
-from provmcp.config import DetectorName
+from provmcp.config import DetectionConfig, DetectorName
 
 # USD per million input / output tokens, from the Claude pricing page
 # (platform.claude.com/docs/en/about-claude/pricing), checked Nov 2026.
@@ -163,6 +163,7 @@ async def run_suite(
     cache: Path | None = None,
     detectors: Sequence[DetectorName] = ("substring", "structured"),
     threshold: float = 0.6,
+    detection: DetectionConfig | None = None,
     max_steps: int = 8,
     concurrency: int = 4,
     price_in: float = 0.0,
@@ -211,6 +212,7 @@ async def run_suite(
                     trial=job.trial,
                     detectors=detectors,
                     threshold=threshold,
+                    detection=detection,
                     max_steps=max_steps,
                 )
             except Exception as exc:  # noqa: BLE001 — one bad episode must not end a long run

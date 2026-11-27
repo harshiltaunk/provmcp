@@ -19,6 +19,15 @@ approvals_file = "../logs/approvals.json"
 [detection]
 detectors = ["substring", "structured"]   # add "embedding" with the [embed] extra
 allowlist = []                            # values allowed to cross servers, e.g. your own email
+# Since 0.9.0 the defaults are the Week 9 calibration (docs/results/calibration-week9.md):
+#   thresholds = { substring = 0.428, structured = 0.85 }, track_tool_metadata = true
+# To go back to the Week 7 behaviour (one global threshold, no tool metadata):
+# thresholds = {}
+# track_tool_metadata = false
+# To add the embedding detector at its calibrated threshold (opt-in, not yet
+# measured on real traffic):
+# detectors = ["substring", "structured", "embedding"]
+# thresholds = { substring = 0.428, structured = 0.85, embedding = 0.429 }
 
 [[servers]]
 id = "echo"

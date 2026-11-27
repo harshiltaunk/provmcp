@@ -171,13 +171,22 @@ class BenchmarkRunner:
     through a shared Detector protocol then.
     """
 
-    def __init__(self, *, detector: Detector | None = None) -> None:
+    def __init__(
+        self, *, detector: Detector | None = None, track_tool_metadata: bool = False
+    ) -> None:
         self.detector = detector or SubstringDetector(min_run_length=8)
+        self.track_tool_metadata = track_tool_metadata
 
     def run(self, scenario: Scenario) -> ScenarioResult:
         store = ProvenanceStore.empty()
         step_results: list[StepResult] = []
         counts: dict[tuple[str, str], int] = {}
+        if self.track_tool_metadata:
+            # A host lists every server's tools at session start.
+            for server in scenario.servers:
+                if "tools/list" in server.canned:
+                    tag = OriginTag(server_id=server.id, tool_name="tools/list")
+                    store.record(TaggedPayload(content=server.canned["tools/list"], tag=tag))
         for step in scenario.trace:
             canned_result = _canned_result_for(scenario, step, counts)
             # If the step reads from the server, tag the response with the

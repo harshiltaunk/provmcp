@@ -79,7 +79,7 @@ def build_app(proxy: Proxy) -> FastAPI:
     app = FastAPI(
         title="ProvMCP",
         description="Runtime detection of cross-server confused-deputy attacks in MCP.",
-        version="0.8.0",
+        version="0.9.0",
         lifespan=lifespan,
     )
 

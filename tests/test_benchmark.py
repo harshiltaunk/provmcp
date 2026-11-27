@@ -57,8 +57,8 @@ def _flags(detector: Detector, path: Path) -> bool:
 
 
 def test_corpus_size() -> None:
-    assert len(load_scenarios(ATTACK_DIR)) == 3
-    assert len(load_scenarios(BENIGN_DIR)) == 4
+    assert len(load_scenarios(ATTACK_DIR)) == 13  # 3 from Weeks 4-6, 10 added in Week 9
+    assert len(load_scenarios(BENIGN_DIR)) == 10  # 4 from Weeks 4-6, 6 added in Week 9
 
 
 def test_cd002_evades_substring_and_structured_by_design() -> None:

@@ -1,0 +1,13 @@
+{
+  "name": "week6",
+  "description": "The frozen Week 6 corpus (3 attacks, 4 benign). Used to reproduce docs/results/eval-week6-*.md and sweep-week6.txt.",
+  "all": [
+    "cd-001-calendar-to-email",
+    "cd-002-paraphrased-calendar-to-email",
+    "cd-003-recased-address-exfiltration",
+    "bn-001-independent-calls",
+    "bn-002-readme-then-clock",
+    "bn-003-convert-meeting-time",
+    "bn-004-reply-to-organizer"
+  ]
+}

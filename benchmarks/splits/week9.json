@@ -1,0 +1,36 @@
+{
+  "name": "week9",
+  "description": "Stratified split of the 27 bundled scenarios (17 attacks, 10 benign). Sorted within each class by sha256('provmcp-week9:' + id) and assigned alternately. Detector thresholds are chosen on 'calibration' only and reported on 'held_out'.",
+  "seed": "provmcp-week9",
+  "calibration": [
+    "bn-002-readme-then-clock",
+    "bn-005-forward-agenda-link",
+    "bn-007-submit-abstract",
+    "bn-008-balance-plus-deposit",
+    "bn-010-translate-note-to-todos",
+    "cd-002-paraphrased-calendar-to-email",
+    "cd-005-base64-encoded-export",
+    "cd-007-reformatted-iban",
+    "cd-009-delayed-cc-injection",
+    "cd-011-control-flow-only",
+    "cd-012-markdown-image-exfil",
+    "cd-013-supply-chain-git-remote",
+    "msb-att08-tool-metadata-exfil",
+    "msb-att13-rug-pull-notes-exfil"
+  ],
+  "held_out": [
+    "bn-001-independent-calls",
+    "bn-003-convert-meeting-time",
+    "bn-004-reply-to-organizer",
+    "bn-006-weather-then-event",
+    "bn-009-invite-from-contacts",
+    "cd-001-calendar-to-email",
+    "cd-003-recased-address-exfiltration",
+    "cd-004-chained-secret-to-paste",
+    "cd-006-license-key-in-url",
+    "cd-008-five-server-share",
+    "cd-010-ssh-key-persistence",
+    "msb-att07-shadowing-verifier",
+    "msb-att10-log-injection"
+  ]
+}
