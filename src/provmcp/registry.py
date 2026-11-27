@@ -7,12 +7,12 @@ flow. The registry is populated at proxy startup from the config file.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class TrustClass(str, Enum):
+class TrustClass(StrEnum):
     """How far the user trusts outputs from this server.
 
     - `trusted`     — local, known-good (e.g. filesystem on the user's Mac)

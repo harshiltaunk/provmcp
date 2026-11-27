@@ -1,0 +1,31 @@
+# Development config — points at the bundled echo server so you can exercise
+# ProvMCP without any real MCP servers installed. Replace the `command` lines
+# with Anthropic's reference servers once you've installed them.
+
+[proxy]
+host = "127.0.0.1"
+port = 7337
+policy = "warn_and_confirm"
+detector_threshold = 0.6
+
+[[servers]]
+id = "echo"
+display_name = "Echo (dummy)"
+trust = "trusted"
+transport = "stdio"
+command = ["python", "examples/dummy_server/echo_server.py"]
+
+
+ [[servers]]
+ id = "time"
+ display_name = "Time (reference)"
+ trust = "trusted"
+ transport = "stdio"
+ command = ["uvx", "mcp-server-time"]
+
+# [[servers]]
+# id = "filesystem"
+# display_name = "Filesystem (reference)"
+# trust = "trusted"
+# transport = "stdio"
+# command = ["uvx", "mcp-server-filesystem", "/Users/harshil/Documents"]
