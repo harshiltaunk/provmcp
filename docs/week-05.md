@@ -40,6 +40,10 @@ provmcp run-benchmark --scenarios benchmarks/attacks --detector composite
 python scripts/sweep_embedding_threshold.py
 ```
 
+> **Correction (Week 6):** the Week 5 `cd-002` leaked the destination address
+> verbatim, so the substring detector also caught it. The scenario was
+> revised in Week 6; see `docs/week-06.md`.
+
 Expected: substring catches `cd-001` (direct marker) but misses `cd-002`.
 Embedding catches both (near-paraphrase). Composite catches both and
 labels the agreement as `embedding+substring` on `cd-001`.

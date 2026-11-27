@@ -163,26 +163,31 @@ def run_benchmark(
 ) -> None:
     """Replay every JSON scenario under a directory through the detector.
 
-    --detector substring   byte-level matching only (default)
-    --detector embedding   sentence-transformers semantic similarity
-    --detector composite   both, deduplicated per source server
+    --detector substring    byte-level matching only (default)
+    --detector structured   typed values (emails, URLs, paths, IDs), normalized
+    --detector embedding    sentence-transformers semantic similarity
+    --detector composite    all three, deduplicated per source server
     """
     from provmcp.benchmark import BenchmarkRunner, load_scenarios
     from provmcp.detectors import (
         CompositeDetector,
         EmbeddingDetector,
+        StructuredFieldDetector,
         SubstringDetector,
     )
 
     selected: Detector
     if detector == "substring":
         selected = SubstringDetector(min_run_length=8)
+    elif detector == "structured":
+        selected = StructuredFieldDetector()
     elif detector == "embedding":
         selected = EmbeddingDetector(threshold=embedding_threshold)
     elif detector == "composite":
         selected = CompositeDetector(
             [
                 SubstringDetector(min_run_length=8),
+                StructuredFieldDetector(),
                 EmbeddingDetector(threshold=embedding_threshold),
             ]
         )
