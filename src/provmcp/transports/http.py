@@ -60,9 +60,18 @@ class HttpTransport(Transport):
 
         if body.get("id") != request_id:
             raise TransportError(f"response id mismatch: {body.get('id')!r}")
-        if "error" in body:
+        if body.get("error"):
             raise TransportError(f"server error: {body['error']}")
         return body.get("result")
+
+    async def notify(self, method: str, params: dict[str, Any]) -> None:
+        if self._client is None:
+            raise TransportError("transport not started")
+        envelope = {"jsonrpc": "2.0", "method": method, "params": params}
+        try:
+            await self._client.post(self._url, json=envelope)
+        except Exception as exc:  # httpx error hierarchy is wide
+            raise TransportError(f"notification failed: {exc}") from exc
 
     async def close(self) -> None:
         if self._client is None:

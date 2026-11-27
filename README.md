@@ -2,82 +2,99 @@
 
 Runtime detection of cross-server confused-deputy attacks in multi-server Model Context Protocol configurations.
 
-ProvMCP is a transparent JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It tags every server response with its origin, propagates those tags through the LLM context, and raises a flag when a tool call to one server carries content that originated at another server.
+ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 1 scaffold. Proxy skeleton, server registry, provenance tag schema.
+**Status:** Week 7 of 16. Live enforcement: every `tools/call` is inspected, with strict / warn-and-confirm / audit policies, out-of-band approvals, and an audit log. 132 tests.
 
 ## Why
 
-When several MCP servers run under the same host, they share one LLM context window. The protocol does not let a server mark its output as untrusted with respect to other servers. A malicious server can plant instructions in its reply; the LLM reads them; the LLM then issues a tool call against a different server. That second server's privileges have been abused through the LLM acting as a confused deputy.
+When several MCP servers run under the same host, they share one LLM context window. The protocol gives a server no way to mark its output as untrusted with respect to other servers. A malicious server can plant instructions in its reply; the LLM reads them and then issues a tool call against a different server. That second server's privileges are abused through the LLM acting as a confused deputy.
 
-This project is a CSCI 298 research project at CSU Fresno, Fall 2026. See `docs/proposal.md` for the full proposal.
+This is a CSCI 298 research project at CSU Fresno, Fall 2026. Weekly progress is in `docs/week-*.md`.
 
 ## Quick start on macOS
 
-Requires macOS 13+ and Python 3.11 or newer.
+Requires macOS 13+ and Python 3.11 or newer (`brew install python@3.11`).
 
 ```bash
-# clone and enter
-git clone <your-repo-url> provmcp
+git clone https://github.com/harshiltaunk/provmcp.git
 cd provmcp
-
-# virtualenv (keeps system python clean)
 python3.11 -m venv .venv
 source .venv/bin/activate
-
-# install in editable mode with dev deps
 pip install -U pip
-pip install -e ".[dev]"
+pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-# run the tests — should all pass
-pytest -v
-
-# run the proxy against the sample echo server
-python -m provmcp.proxy --config configs/dev.toml
+pytest -q                           # 132 passed
+bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
-If `python3.11` is not on your system, install it with:
+## How it runs
+
+```
+Claude Desktop ──stdio──> provmcp bridge --via URL --server calendar ─┐
+               ──stdio──> provmcp bridge --via URL --server email ────┤ HTTP
+                                                                       v
+                          provmcp run -c config.toml   (one daemon, one shared provenance store)
+                            ├── calendar MCP server
+                            └── email MCP server
+```
+
+The daemon must hold the only provenance store. If each server had its own proxy process, content from the calendar server would never be visible when inspecting a call to the email server.
 
 ```bash
-brew install python@3.11
+provmcp run -c configs/dev.toml                         # 1. start the daemon
+provmcp export-claude-config -c configs/dev.toml        # 2. paste into claude_desktop_config.json
+provmcp approvals list -c configs/dev.toml              # 3. review held calls
+provmcp approvals approve <id> -c configs/dev.toml      #    (interactive terminal only)
+provmcp audit -c configs/dev.toml                       # 4. see every decision
 ```
+
+## Policies
+
+| policy | when a cross-server flow is found |
+|---|---|
+| `strict` | Block. The assistant receives an error result; the target server never sees the call. |
+| `warn_and_confirm` (default) | Hold. An approval is created; the user approves or denies it from a terminal. An approval allows the identical call once. |
+| `audit` | Forward and log. |
+
+Policies can be overridden per (source, target) server pair, and trusted values (for example your own contacts) can be allowlisted. See `configs/dev.toml`.
 
 ## Project layout
 
 ```
-provmcp/
-  src/provmcp/
-    __init__.py
-    proxy.py           JSON-RPC pass-through proxy
-    registry.py        Connected-server identity and trust class
-    provenance.py      Origin tags, propagation rules
-    policy.py          Strict / warn-and-confirm / audit templates
-    detectors/
-      substring.py     Byte-level propagation check
-      embedding.py     Paraphrase check (sentence-transformers)
-      structured.py    Typed-field re-use check
-  tests/               pytest suite
-  benchmarks/          attack scenarios, benign traces
-  scripts/             one-off tools (wiring Claude Desktop, etc.)
-  docs/                proposal, design notes, weekly logs
+src/provmcp/
+  proxy.py            routing, recording, enforcement hook
+  inspector.py        detectors + policy -> pass / block / hold
+  approvals.py        single-use, out-of-band approvals
+  audit.py            JSONL decision log
+  provenance.py       origin tags and the shared store
+  registry.py         server identity and trust class
+  policy.py           strict / warn_and_confirm / audit
+  detectors/          substring, structured, embedding, composite
+  server.py           HTTP daemon (FastAPI)
+  bridge.py           stdio bridges (daemon and direct mode)
+  transports/         stdio and HTTP clients for backing servers
+  config.py, wiring.py, cli.py, benchmark.py
+benchmarks/           attack (cd-*) and benign (bn-*) scenarios
+examples/             echo and scripted test servers
+configs/              dev.toml, demo-attack.toml
+scripts/              evaluation, demo and verification scripts
+docs/                 weekly logs and saved results
 ```
 
 ## Development workflow
 
 ```bash
-# format + lint before every commit
-ruff format src tests
-ruff check src tests
-
-# run the type checker
+ruff format src tests scripts examples
+ruff check src tests scripts examples
 mypy src
-
-# run the test suite
-pytest -v
-
-# run with coverage
-pytest --cov=provmcp --cov-report=term-missing
+pytest -q
+bash scripts/verify_week7.sh
 ```
+
+## Known limitations
+
+See `docs/week-07.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no session scope or expiry yet; only `tools/call` is inspected; and provenance sees data flow, not user intent.
 
 ## License
 

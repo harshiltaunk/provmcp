@@ -1,6 +1,6 @@
 """ProvMCP: runtime detection of cross-server confused-deputy attacks in MCP."""
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 from provmcp.provenance import OriginTag, TaggedPayload
 from provmcp.registry import ServerRecord, ServerRegistry, TrustClass

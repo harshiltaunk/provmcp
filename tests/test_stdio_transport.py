@@ -49,3 +49,37 @@ async def test_stdio_close_is_idempotent() -> None:
     await transport.start()
     await transport.close()
     await transport.close()  # no error the second time
+
+
+async def test_notify_sends_without_waiting_and_keeps_stream_in_sync() -> None:
+    transport = StdioTransport([sys.executable, ECHO])
+    await transport.start()
+    try:
+        await transport.notify("notifications/initialized", {})
+        result = await transport.call("tools/list", {})
+        assert result["echoed_method"] == "tools/list"
+    finally:
+        await transport.close()
+
+
+CHATTY = """
+import json, sys
+for line in sys.stdin:
+    msg = json.loads(line)
+    if "id" not in msg:
+        continue
+    log = {"jsonrpc": "2.0", "method": "notifications/message", "params": {"data": "working"}}
+    sys.stdout.write(json.dumps(log) + "\\n")
+    sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": "done"}) + "\\n")
+    sys.stdout.flush()
+"""
+
+
+async def test_call_skips_server_initiated_messages() -> None:
+    transport = StdioTransport([sys.executable, "-c", CHATTY])
+    await transport.start()
+    try:
+        assert await transport.call("tools/call", {}) == "done"
+        assert await transport.call("tools/call", {}) == "done"
+    finally:
+        await transport.close()

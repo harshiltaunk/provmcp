@@ -104,3 +104,63 @@ policy = "strict"
     )
     config = load_config(path)
     assert config.proxy.policy is PolicyTemplate.STRICT
+
+
+SERVERS = """
+[[servers]]
+id = "calendar"
+display_name = "Calendar"
+command = ["echo"]
+
+[[servers]]
+id = "email"
+display_name = "Email"
+command = ["echo"]
+"""
+
+
+def test_detection_defaults(tmp_path: Path) -> None:
+    config = load_config(_write(tmp_path, SERVERS))
+    assert config.detection.enabled is True
+    assert config.detection.detectors == ["substring", "structured"]
+    assert config.proxy.audit_log is None
+    assert config.proxy.pair_policies == []
+
+
+def test_pair_policy_parsed(tmp_path: Path) -> None:
+    body = (
+        '[[proxy.pair_policies]]\nsource = "calendar"\ntarget = "email"\npolicy = "strict"\n'
+        + SERVERS
+    )
+    config = load_config(_write(tmp_path, body))
+    pair = config.proxy.pair_policies[0]
+    assert (pair.source, pair.target, pair.policy) == ("calendar", "email", PolicyTemplate.STRICT)
+
+
+def test_pair_policy_with_unknown_server_rejected(tmp_path: Path) -> None:
+    body = (
+        '[[proxy.pair_policies]]\nsource = "calendar"\ntarget = "slack"\npolicy = "strict"\n'
+        + SERVERS
+    )
+    with pytest.raises(ValueError):
+        load_config(_write(tmp_path, body))
+
+
+def test_enabled_detection_needs_a_detector(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        load_config(_write(tmp_path, "[detection]\ndetectors = []\n" + SERVERS))
+
+
+def test_unknown_detector_name_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        load_config(_write(tmp_path, '[detection]\ndetectors = ["regex"]\n' + SERVERS))
+
+
+def test_relative_paths_resolve_against_config_dir(tmp_path: Path) -> None:
+    sub = tmp_path / "configs"
+    sub.mkdir()
+    path = sub / "p.toml"
+    path.write_text('[proxy]\naudit_log = "../logs/a.jsonl"\n' + SERVERS, encoding="utf-8")
+    config = load_config(path)
+    assert config.resolve_path(config.proxy.audit_log) == (tmp_path / "logs" / "a.jsonl").resolve()
+    assert config.resolve_path(None) is None

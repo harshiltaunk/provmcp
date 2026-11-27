@@ -26,6 +26,8 @@ def main() -> None:
                 "error": {"code": -32700, "message": "parse error"},
             }
         else:
+            if "id" not in request:
+                continue  # JSON-RPC notifications get no reply
             response = {
                 "jsonrpc": "2.0",
                 "id": request.get("id"),
