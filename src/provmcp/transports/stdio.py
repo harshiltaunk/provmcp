@@ -43,43 +43,52 @@ class StdioTransport(Transport):
             stderr=asyncio.subprocess.PIPE,
         )
 
-    async def call(self, method: str, params: dict[str, Any]) -> Any:
+    def _pipes(self) -> tuple[asyncio.StreamWriter, asyncio.StreamReader]:
         if self._process is None:
             raise TransportError("transport not started")
         if self._process.stdin is None or self._process.stdout is None:
             raise TransportError("child process has no pipes")
+        return self._process.stdin, self._process.stdout
 
+    async def _write(self, writer: asyncio.StreamWriter, envelope: dict[str, Any]) -> None:
+        try:
+            writer.write((json.dumps(envelope) + "\n").encode("utf-8"))
+            await writer.drain()
+        except (BrokenPipeError, ConnectionResetError) as exc:
+            raise TransportError(f"write failed: {exc}") from exc
+
+    async def notify(self, method: str, params: dict[str, Any]) -> None:
+        writer, _ = self._pipes()
+        async with self._lock:
+            await self._write(writer, {"jsonrpc": "2.0", "method": method, "params": params})
+
+    async def call(self, method: str, params: dict[str, Any]) -> Any:
+        writer, reader = self._pipes()
         async with self._lock:
             request_id = next(self._ids)
-            envelope = {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "method": method,
-                "params": params,
-            }
-            line = (json.dumps(envelope) + "\n").encode("utf-8")
-            try:
-                self._process.stdin.write(line)
-                await self._process.stdin.drain()
-            except (BrokenPipeError, ConnectionResetError) as exc:
-                raise TransportError(f"write failed: {exc}") from exc
-
-            raw = await self._process.stdout.readline()
-            if not raw:
-                raise TransportError("child closed stdout before responding")
-
-            try:
-                response = json.loads(raw.decode("utf-8"))
-            except json.JSONDecodeError as exc:
-                raise TransportError(f"invalid JSON from child: {exc}") from exc
-
-            if response.get("id") != request_id:
-                raise TransportError(
-                    f"response id {response.get('id')!r} does not match request {request_id}"
-                )
-            if "error" in response:
-                raise TransportError(f"server error: {response['error']}")
-            return response.get("result")
+            await self._write(
+                writer,
+                {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params},
+            )
+            while True:
+                raw = await reader.readline()
+                if not raw:
+                    raise TransportError("child closed stdout before responding")
+                try:
+                    response = json.loads(raw.decode("utf-8"))
+                except json.JSONDecodeError as exc:
+                    raise TransportError(f"invalid JSON from child: {exc}") from exc
+                if "method" in response:
+                    # Server-initiated notification or request (logging, progress).
+                    # Not ours to answer here; skip and keep reading.
+                    continue
+                if response.get("id") != request_id:
+                    raise TransportError(
+                        f"response id {response.get('id')!r} does not match request {request_id}"
+                    )
+                if response.get("error"):
+                    raise TransportError(f"server error: {response['error']}")
+                return response.get("result")
 
     async def close(self) -> None:
         if self._process is None:

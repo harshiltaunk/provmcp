@@ -5,6 +5,7 @@
 #   3. committed to git and identical to origin/main
 #   4. on GitHub, byte-identical to the local copy
 #   5. reproducible: rerunning the current code gives the same output
+#
 # Usage: bash scripts/verify_results.sh
 set -u
 cd "$(dirname "$0")/.."

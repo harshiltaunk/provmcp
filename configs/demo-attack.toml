@@ -1,0 +1,40 @@
+# Live attack demo: the poisoned calendar from cd-003 next to an email server.
+# Run from the repository root:
+#
+#   provmcp run -c configs/demo-attack.toml
+#
+# Servers are scripted replays (examples/dummy_server/scripted_server.py), so
+# the demo is deterministic and needs no accounts or network.
+# Relative file paths below resolve against this file's directory.
+
+[proxy]
+host = "127.0.0.1"
+port = 7338
+policy = "warn_and_confirm"
+detector_threshold = 0.6
+audit_log = "../logs/demo-audit.jsonl"
+approvals_file = "../logs/demo-approvals.json"
+approval_ttl_seconds = 600
+
+[detection]
+detectors = ["substring", "structured"]
+allowlist = []
+
+[[servers]]
+id = "calendar"
+display_name = "Calendar (poisoned, cd-003)"
+trust = "untrusted"
+transport = "stdio"
+command = ["python", "examples/dummy_server/scripted_server.py",
+           "--scenario", "benchmarks/attacks/cd_003_recased_address_exfiltration.json",
+           "--server", "calendar"]
+
+[[servers]]
+id = "email"
+display_name = "Email (scripted)"
+trust = "limited"
+transport = "stdio"
+command = ["python", "examples/dummy_server/scripted_server.py",
+           "--scenario", "benchmarks/attacks/cd_003_recased_address_exfiltration.json",
+           "--server", "email",
+           "--record", "logs/demo-email-received.jsonl"]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import sys
 from pathlib import Path
@@ -19,9 +18,11 @@ from provmcp.config import load_config
 from provmcp.detectors.base import Detector
 from provmcp.proxy import RpcRequest
 from provmcp.server import build_app
-from provmcp.wiring import build_proxy
+from provmcp.wiring import build_approvals, build_audit, build_proxy
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
+approvals_app = typer.Typer(no_args_is_help=True, help="Review calls held for approval.")
+app.add_typer(approvals_app, name="approvals")
 console = Console()
 
 
@@ -70,14 +71,16 @@ def ping(
     config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
     server: Annotated[str, typer.Option("--server", "-s")],
     method: Annotated[str, typer.Option("--method", "-m")] = "tools/list",
+    params: Annotated[str, typer.Option("--params", "-p", help="JSON object")] = "{}",
 ) -> None:
     """Send one JSON-RPC call to a server through the proxy and print the result.
 
     Performs the MCP initialize handshake first so real servers accept the
-    subsequent call.
+    subsequent call. Inspection applies, so a `tools/call` can be held.
     """
     cfg = load_config(config)
     proxy = build_proxy(cfg)
+    call_params = json.loads(params)
 
     async def go() -> None:
         await proxy.router.start_all()
@@ -94,13 +97,18 @@ def ping(
                     target_server_id=server,
                 )
             )
-            transport = proxy.router.get(server)
-            with contextlib.suppress(Exception):
-                await transport.call("notifications/initialized", {})
+            await proxy.handle(
+                RpcRequest(
+                    method="notifications/initialized",
+                    params={},
+                    request_id=None,
+                    target_server_id=server,
+                )
+            )
             response = await proxy.handle(
                 RpcRequest(
                     method=method,
-                    params={},
+                    params=call_params,
                     request_id=2,
                     target_server_id=server,
                 )
@@ -132,27 +140,44 @@ def run(
         f"ProvMCP serving {len(cfg.servers)} server(s) on "
         f"[bold]http://{bind_host}:{bind_port}[/bold]"
     )
+    if cfg.detection.enabled:
+        console.print(
+            f"  inspection: {', '.join(cfg.detection.detectors)}  "
+            f"policy={cfg.proxy.policy.value}  threshold={cfg.proxy.detector_threshold}"
+        )
+        for pair in cfg.proxy.pair_policies:
+            console.print(f"  pair policy: {pair.source} -> {pair.target} = {pair.policy.value}")
+        console.print(f"  audit log: {cfg.resolve_path(cfg.proxy.audit_log) or 'memory only'}")
+        console.print(f"  approvals: {cfg.resolve_path(cfg.proxy.approvals_file) or 'memory only'}")
+    else:
+        console.print("  inspection: [yellow]disabled[/yellow]")
     uvicorn.run(fastapi_app, host=bind_host, port=bind_port, log_level=log_level)
 
 
 @app.command()
 def bridge(
-    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
     server: Annotated[str, typer.Option("--server", "-s")],
+    via: Annotated[
+        str | None, typer.Option("--via", help="URL of a running `provmcp run` daemon")
+    ] = None,
+    config: Annotated[Path | None, typer.Option("--config", "-c", exists=True)] = None,
 ) -> None:
-    """Run the stdio bridge for one backing server.
+    """Run a stdio bridge for one backing server (what Claude Desktop launches).
 
-    Fronts exactly one server identified by `--server`, speaking MCP over
-    stdin/stdout. Point Claude Desktop's `claude_desktop_config.json` at
-    `provmcp bridge -c <path> -s <server_id>` to insert ProvMCP between
-    Claude Desktop and that backing server.
+    --via URL      daemon mode (recommended): relay to a running `provmcp run`,
+                   which holds the one provenance store shared by every server.
+    --config PATH  direct mode: an in-process proxy for this server only. No
+                   cross-server detection, because nothing is shared.
     """
-    from provmcp.bridge import StdioBridge
+    from provmcp.bridge import DaemonBridge, StdioBridge
 
-    cfg = load_config(config)
-    proxy = build_proxy(cfg)
-    stdio_bridge = StdioBridge(proxy=proxy, server_id=server)
-    asyncio.run(stdio_bridge.run())
+    if via is not None:
+        asyncio.run(DaemonBridge(daemon_url=via, server_id=server).run())
+        return
+    if config is None:
+        raise typer.BadParameter("pass --via <daemon url> or --config <path>")
+    proxy = build_proxy(load_config(config))
+    asyncio.run(StdioBridge(proxy=proxy, server_id=server).run())
 
 
 @app.command(name="run-benchmark")
@@ -232,48 +257,143 @@ def run_benchmark(
 @app.command(name="export-claude-config")
 def export_claude_config(
     config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
-    mode: Annotated[str, typer.Option("--mode")] = "bridge",
-    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
-    port: Annotated[int, typer.Option("--port")] = 7337,
+    mode: Annotated[str, typer.Option("--mode")] = "daemon",
+    host: Annotated[str | None, typer.Option("--host")] = None,
+    port: Annotated[int | None, typer.Option("--port")] = None,
 ) -> None:
-    """Print a Claude Desktop config stanza that points at ProvMCP.
+    """Print a Claude Desktop config stanza that routes MCP traffic through ProvMCP.
 
-    Writes JSON to stdout. Paste into the Claude Desktop config file at:
+    Paste the output into:
 
         ~/Library/Application Support/Claude/claude_desktop_config.json
 
-    --mode bridge (default): emits one stdio bridge command per server,
-      compatible with vanilla Claude Desktop.
-    --mode http: emits HTTP endpoints at `/mcp/<server_id>`, for clients
-      that support HTTP transport.
+    --mode daemon (default): one thin bridge per server relaying to the
+      `provmcp run` daemon. Cross-server detection works. Start the daemon first.
+    --mode bridge: one self-contained bridge per server. No cross-server
+      detection; for single-server testing only.
+    --mode http: HTTP endpoints, for clients with HTTP transport support.
     """
     cfg = load_config(config)
     abs_config = str(Path(config).resolve())
-    stanza: dict[str, Any]
-    if mode == "http":
-        stanza = {
-            "mcpServers": {
-                s.id: {
-                    "url": f"http://{host}:{port}/mcp/{s.id}",
-                    "transport": "http",
-                }
-                for s in cfg.servers
-            }
+    daemon = f"http://{host or cfg.proxy.host}:{port or cfg.proxy.port}"
+    provmcp_bin = str(Path(sys.executable).parent / "provmcp")
+    servers: dict[str, Any]
+    if mode == "daemon":
+        servers = {
+            s.id: {"command": provmcp_bin, "args": ["bridge", "--via", daemon, "--server", s.id]}
+            for s in cfg.servers
         }
     elif mode == "bridge":
-        provmcp_bin = sys.executable.rsplit("/", 1)[0] + "/provmcp"
-        stanza = {
-            "mcpServers": {
-                s.id: {
-                    "command": provmcp_bin,
-                    "args": ["bridge", "--config", abs_config, "--server", s.id],
-                }
-                for s in cfg.servers
+        servers = {
+            s.id: {
+                "command": provmcp_bin,
+                "args": ["bridge", "--config", abs_config, "--server", s.id],
             }
+            for s in cfg.servers
         }
+    elif mode == "http":
+        servers = {s.id: {"url": f"{daemon}/mcp/{s.id}", "transport": "http"} for s in cfg.servers}
     else:
-        raise typer.BadParameter(f"unknown mode: {mode!r} (use 'bridge' or 'http')")
-    print(json.dumps(stanza, indent=2))
+        raise typer.BadParameter(f"unknown mode: {mode!r} (use daemon, bridge or http)")
+    print(json.dumps({"mcpServers": servers}, indent=2))
+
+
+@app.command()
+def audit(
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+    last: Annotated[int, typer.Option("--last", "-n")] = 20,
+) -> None:
+    """Show the most recent inspection decisions from the audit log."""
+    cfg = load_config(config)
+    log = build_audit(cfg)
+    if log.path is None:
+        console.print("No audit_log configured in [proxy]; nothing is persisted.")
+        raise typer.Exit(code=1)
+    events = log.read(last=last)
+    if not events:
+        console.print(f"No events yet in {log.path}")
+        return
+    table = Table(title=f"Last {len(events)} decision(s) — {log.path}")
+    for column in ("time", "action", "policy", "target", "tool", "from", "evidence", "approval"):
+        table.add_column(column)
+    for e in events:
+        findings = e.get("findings") or []
+        sources = ",".join(sorted({f.get("source_server_id", "?") for f in findings}))
+        evidence = findings[0].get("excerpt", "")[:48] if findings else ""
+        table.add_row(
+            str(e.get("ts", "")),
+            str(e.get("action", "")),
+            str(e.get("template", "")),
+            str(e.get("target", "")),
+            str(e.get("tool", "")),
+            sources,
+            evidence,
+            str(e.get("approval_id") or ""),
+        )
+    console.print(table)
+
+
+@approvals_app.command("list")
+def approvals_list(
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+    show_all: Annotated[bool, typer.Option("--all", help="include decided ones")] = False,
+) -> None:
+    """List calls waiting for approval."""
+    store = build_approvals(load_config(config))
+    items = store.entries(include_decided=show_all)
+    if not items:
+        console.print("No pending approvals." if not show_all else "No approvals recorded.")
+        return
+    table = Table(title="Approvals")
+    for column in ("id", "status", "target", "tool", "what was found"):
+        table.add_column(column)
+    for item in items:
+        table.add_row(item.id, item.status, item.target, item.tool, item.summary)
+    console.print(table)
+
+
+def _decide(config: Path, approval_id: str, *, approve: bool) -> None:
+    if not sys.stdin.isatty():
+        console.print(
+            "[red]Refusing:[/red] approvals must be confirmed in an interactive terminal, "
+            "so an LLM tool cannot approve its own held call."
+        )
+        raise typer.Exit(code=2)
+    store = build_approvals(load_config(config))
+    item = store.get(approval_id)
+    if item is None:
+        console.print(f"[red]No approval with id {approval_id}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[bold]{item.tool}[/bold] on [bold]{item.target}[/bold]: {item.summary}")
+    verb = "Approve" if approve else "Deny"
+    if not typer.confirm(f"{verb} this call?"):
+        raise typer.Exit(code=1)
+    try:
+        decided = store.decide(approval_id, approve=approve)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    console.print(f"{approval_id}: [bold]{decided.status}[/bold]")
+    if approve:
+        console.print("The identical call will be allowed once if it is retried.")
+
+
+@approvals_app.command("approve")
+def approvals_approve(
+    approval_id: str,
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+) -> None:
+    """Approve one held call (interactive confirmation required)."""
+    _decide(config, approval_id, approve=True)
+
+
+@approvals_app.command("deny")
+def approvals_deny(
+    approval_id: str,
+    config: Annotated[Path, typer.Option("--config", "-c", exists=True)],
+) -> None:
+    """Deny one held call; identical retries are then blocked."""
+    _decide(config, approval_id, approve=False)
 
 
 if __name__ == "__main__":

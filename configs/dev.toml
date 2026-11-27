@@ -7,6 +7,18 @@ host = "127.0.0.1"
 port = 7337
 policy = "warn_and_confirm"
 detector_threshold = 0.6
+audit_log = "../logs/audit.jsonl"          # relative to this file
+approvals_file = "../logs/approvals.json"
+
+# Per-pair overrides, e.g. never let fetched web content drive file writes:
+# [[proxy.pair_policies]]
+# source = "fetch"
+# target = "filesystem"
+# policy = "strict"
+
+[detection]
+detectors = ["substring", "structured"]   # add "embedding" with the [embed] extra
+allowlist = []                            # values allowed to cross servers, e.g. your own email
 
 [[servers]]
 id = "echo"

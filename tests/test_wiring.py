@@ -79,3 +79,22 @@ command = ["echo"]
     assert "a" in [r.server_id for r in proxy.registry.all()]
     assert proxy.router.server_ids() == ["a"]
     assert len(proxy.store) == 0
+
+
+def test_build_inspector_follows_detection_section(tmp_path: Path) -> None:
+    from provmcp.detectors import CompositeDetector, StructuredFieldDetector
+    from provmcp.wiring import build_inspector
+
+    servers = '[[servers]]\nid = "a"\ndisplay_name = "A"\ncommand = ["echo"]\n'
+    one = load_config(_config(tmp_path, '[detection]\ndetectors = ["structured"]\n' + servers))
+    inspector = build_inspector(one)
+    assert inspector is not None
+    assert isinstance(inspector.detector, StructuredFieldDetector)
+
+    both = load_config(_config(tmp_path, servers))
+    built = build_inspector(both)
+    assert built is not None
+    assert isinstance(built.detector, CompositeDetector)
+
+    off = load_config(_config(tmp_path, "[detection]\nenabled = false\n" + servers))
+    assert build_inspector(off) is None

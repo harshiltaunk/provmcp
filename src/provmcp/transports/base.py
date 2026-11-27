@@ -27,6 +27,14 @@ class Transport(ABC):
     async def call(self, method: str, params: dict[str, Any]) -> Any:
         """Send a JSON-RPC request and return the raw `result` field."""
 
+    async def notify(self, method: str, params: dict[str, Any]) -> None:
+        """Send a JSON-RPC notification: no id, no response expected.
+
+        The default falls back to `call` and discards the result, which keeps
+        simple test doubles working. Real transports override this.
+        """
+        await self.call(method, params)
+
     @abstractmethod
     async def close(self) -> None:
         """Release underlying resources. Safe to call more than once."""

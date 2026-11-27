@@ -79,16 +79,20 @@ def build_app(proxy: Proxy) -> FastAPI:
     app = FastAPI(
         title="ProvMCP",
         description="Runtime detection of cross-server confused-deputy attacks in MCP.",
-        version="0.3.0",
+        version="0.7.0",
         lifespan=lifespan,
     )
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
+        inspector = proxy.inspector
         return {
             "status": "ok",
             "servers": proxy.router.server_ids(),
             "store_size": len(proxy.store),
+            "inspection": inspector is not None,
+            "policy": inspector.template.value if inspector is not None else None,
+            "pending_approvals": len(inspector.approvals.entries()) if inspector else 0,
         }
 
     @app.post("/mcp/{server_id}")
