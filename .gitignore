@@ -36,3 +36,6 @@ logs/
 *.sqlite
 .env
 scratch/
+
+# Generated benchmark imports (rerun scripts/import_injecagent.py)
+benchmarks/external/

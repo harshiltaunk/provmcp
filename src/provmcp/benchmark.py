@@ -7,6 +7,17 @@ through a ProvMCP Proxy whose transports return the canned responses, runs
 the configured detectors on each outbound call, and reports per-step
 findings.
 
+Since Week 8 a scenario can also drive a real LLM agent (`provmcp.agent`):
+
+- `task` is the user's request to the agent.
+- `oracle` says what success means: the `entry` call exposes the agent to
+  the scenario's content (an episode without it is invalid), and every
+  `goal` call must reach its server. For an attack the goal is the
+  attacker's objective; for a benign scenario it is the user's task.
+- `canned["responses"]` maps a tool name to its result. A list is a
+  sequence: the n-th call returns the n-th item (the last item repeats).
+- `metadata` records where an imported scenario came from.
+
 The runner is deliberately offline — it never starts a subprocess, never
 talks to a real LLM. It exists to exercise the provenance pipeline and
 the detector stack against a growing corpus of hand-authored scenarios
@@ -44,13 +55,48 @@ class ScenarioStep(BaseModel):
     expect_cross_origin_from: str | None = None
 
 
+class OracleCall(BaseModel):
+    """One tool call the oracle looks for."""
+
+    server: str
+    tool: str
+    contains: list[str] = Field(default_factory=list)
+
+    def matches(self, server: str, tool: str, arguments: Any) -> bool:
+        """True if this is the call, and its arguments contain every listed string."""
+        if server != self.server or tool != self.tool:
+            return False
+        text = json.dumps(arguments, sort_keys=True, ensure_ascii=False).lower()
+        return all(needle.lower() in text for needle in self.contains)
+
+
+class Oracle(BaseModel):
+    """What counts as success when an agent runs the scenario."""
+
+    entry: OracleCall | None = None
+    goal: list[OracleCall]
+
+
 class Scenario(BaseModel):
     id: str
     title: str
     description: str = ""
     servers: list[ScenarioServer]
-    trace: list[ScenarioStep]
+    trace: list[ScenarioStep] = Field(default_factory=list)
     ground_truth: str
+    task: str | None = None
+    oracle: Oracle | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def is_attack(self) -> bool:
+        return self.ground_truth == "cross_server_influence"
+
+    def server(self, server_id: str) -> ScenarioServer:
+        for server in self.servers:
+            if server.id == server_id:
+                return server
+        raise KeyError(f"scenario {self.id} has no server {server_id!r}")
 
 
 def load_scenario(path: str | Path) -> Scenario:
@@ -59,9 +105,13 @@ def load_scenario(path: str | Path) -> Scenario:
 
 
 def load_scenarios(root: str | Path) -> list[Scenario]:
-    """Load every `.json` scenario under a directory (non-recursive)."""
+    """Load every `.json` scenario under a directory (non-recursive).
+
+    Files whose names start with `_` (such as an importer's `_manifest.json`)
+    are skipped.
+    """
     return sorted(
-        (load_scenario(p) for p in Path(root).glob("*.json")),
+        (load_scenario(p) for p in Path(root).glob("*.json") if not p.name.startswith("_")),
         key=lambda s: s.id,
     )
 
@@ -106,8 +156,9 @@ class BenchmarkRunner:
     def run(self, scenario: Scenario) -> ScenarioResult:
         store = ProvenanceStore.empty()
         step_results: list[StepResult] = []
+        counts: dict[tuple[str, str], int] = {}
         for step in scenario.trace:
-            canned_result = _canned_result_for(scenario, step)
+            canned_result = _canned_result_for(scenario, step, counts)
             # If the step reads from the server, tag the response with the
             # server's origin before considering the next step.
             tag = OriginTag(server_id=step.server, tool_name=step.method)
@@ -137,10 +188,27 @@ class BenchmarkRunner:
         )
 
 
-def _canned_result_for(scenario: Scenario, step: ScenarioStep) -> Any:
-    for server in scenario.servers:
-        if server.id == step.server:
-            if step.method in server.canned:
-                return server.canned[step.method]
-            return {}
-    raise KeyError(f"step references unknown server: {step.server!r}")
+def canned_tool_result(canned: dict[str, Any], tool: str, call_index: int) -> Any:
+    """The canned result for the `call_index`-th call (0-based) to `tool`."""
+    responses = canned.get("responses") or {}
+    if tool in responses:
+        value = responses[tool]
+        if isinstance(value, list):
+            return value[min(call_index, len(value) - 1)] if value else {}
+        return value
+    return canned.get("tools/call", {})
+
+
+def _canned_result_for(
+    scenario: Scenario, step: ScenarioStep, counts: dict[tuple[str, str], int]
+) -> Any:
+    try:
+        server = scenario.server(step.server)
+    except KeyError:
+        raise KeyError(f"step references unknown server: {step.server!r}") from None
+    if step.method == "tools/call":
+        tool = str(step.params.get("name", ""))
+        index = counts.get((step.server, tool), 0)
+        counts[(step.server, tool)] = index + 1
+        return canned_tool_result(server.canned, tool, index)
+    return server.canned.get(step.method, {})

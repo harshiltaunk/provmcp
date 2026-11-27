@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 7 of 16. Live enforcement: every `tools/call` is inspected, with strict / warn-and-confirm / audit policies, out-of-band approvals, and an audit log. 132 tests.
+**Status:** Week 8 of 16. Live enforcement with strict / warn-and-confirm / audit policies, out-of-band approvals and an audit log (Week 7), plus an agent harness that measures attack success with real LLMs on our scenarios, MCPSecBench-derived cases and imported InjecAgent cases (Week 8). 175 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 132 passed
+pytest -q                           # 175 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -59,6 +59,28 @@ provmcp audit -c configs/dev.toml                       # 4. see every decision
 
 Policies can be overridden per (source, target) server pair, and trusted values (for example your own contacts) can be allowlisted. See `configs/dev.toml`.
 
+## Measuring attack success with an LLM
+
+```bash
+# free: a scripted agent that obeys every injection (upper bound)
+provmcp agent-run -s benchmarks/attacks -s benchmarks/benign -s benchmarks/msb
+
+# Claude (needs ANTHROPIC_API_KEY); --dry-run prints a cost estimate first
+provmcp agent-run -s benchmarks/attacks -s benchmarks/msb \
+  --backend anthropic --model claude-haiku-5-5 --trials 5 --dry-run
+
+# a local model through Ollama
+provmcp agent-run -s benchmarks/attacks --backend ollama --model llama3.1:8b
+
+# InjecAgent cases as multi-server scenarios (MIT; clone it first)
+python scripts/import_injecagent.py --repo ~/Projects/InjecAgent
+```
+
+`audit` gives the no-defense baseline and ProvMCP's detection rate from one
+run; `strict` measures protection end to end. Success is judged by what the
+target server actually received. See `docs/week-08.md` and
+`docs/benchmarks/threat-model-mapping.md`.
+
 ## Project layout
 
 ```
@@ -73,9 +95,11 @@ src/provmcp/
   detectors/          substring, structured, embedding, composite
   server.py           HTTP daemon (FastAPI)
   bridge.py           stdio bridges (daemon and direct mode)
+  agent/              LLM agent harness: backends, episode runner, suite + report
+  importers/          InjecAgent -> multi-server scenarios
   transports/         stdio and HTTP clients for backing servers
   config.py, wiring.py, cli.py, benchmark.py
-benchmarks/           attack (cd-*) and benign (bn-*) scenarios
+benchmarks/           attack (cd-*), benign (bn-*) and MCPSecBench-derived (msb-*) scenarios
 examples/             echo and scripted test servers
 configs/              dev.toml, demo-attack.toml
 scripts/              evaluation, demo and verification scripts
@@ -89,12 +113,12 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week7.sh
+bash scripts/verify_week8.sh
 ```
 
 ## Known limitations
 
-See `docs/week-07.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no session scope or expiry yet; only `tools/call` is inspected; and provenance sees data flow, not user intent.
+See `docs/week-07.md` and `docs/week-08.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no session scope or expiry yet; only `tools/call` is inspected; tool descriptions (`tools/list`) are not tracked; the substring detector's scores never reach the live threshold; and provenance sees data flow, not user intent.
 
 ## License
 
