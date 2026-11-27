@@ -1,0 +1,85 @@
+[
+  {
+    "toolkit": "RecipeSite",
+    "tools": [
+      {
+        "name": "GetReviews",
+        "summary": "Get reviews for a recipe.",
+        "parameters": [
+          {
+            "name": "recipe_id",
+            "type": "string",
+            "description": "Recipe id",
+            "required": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "toolkit": "DoorHub",
+    "tools": [
+      {
+        "name": "GrantGuestCode",
+        "summary": "Grant a guest door code.",
+        "parameters": [
+          {
+            "name": "guest",
+            "type": "string",
+            "description": "Guest name",
+            "required": true
+          },
+          {
+            "name": "permanent",
+            "type": "boolean",
+            "description": "No expiry",
+            "required": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "toolkit": "MailBox",
+    "tools": [
+      {
+        "name": "ReadMessage",
+        "summary": "Read the latest message.",
+        "parameters": []
+      },
+      {
+        "name": "DeleteAllMessages",
+        "summary": "Delete all messages.",
+        "parameters": []
+      },
+      {
+        "name": "SendMessage",
+        "summary": "Send an email.",
+        "parameters": [
+          {
+            "name": "to",
+            "type": "string",
+            "description": "Recipient",
+            "required": true
+          },
+          {
+            "name": "body",
+            "type": "string",
+            "description": "Body",
+            "required": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "toolkit": "ShopVault",
+    "tools": [
+      {
+        "name": "ViewSavedCards",
+        "summary": "List saved payment cards.",
+        "parameters": []
+      }
+    ]
+  }
+]

@@ -396,5 +396,243 @@ def approvals_deny(
     _decide(config, approval_id, approve=False)
 
 
+@app.command(name="agent-run")
+def agent_run(
+    scenarios: Annotated[
+        list[Path], typer.Option("--scenarios", "-s", exists=True, help="directory or file")
+    ],
+    backend: Annotated[str, typer.Option(help="scripted | anthropic | ollama")] = "scripted",
+    model: Annotated[str, typer.Option(help="e.g. claude-haiku-5-5 or llama3.1:8b")] = "",
+    conditions: Annotated[str, typer.Option(help="comma list of none,audit,warn,strict")] = (
+        "audit,strict"
+    ),
+    trials: Annotated[int, typer.Option(min=1)] = 1,
+    limit: Annotated[int | None, typer.Option(help="sample at most N per --scenarios path")] = None,
+    seed: Annotated[int, typer.Option()] = 0,
+    include_same_server: Annotated[bool, typer.Option("--include-same-server")] = False,
+    detectors: Annotated[str, typer.Option()] = "substring,structured",
+    threshold: Annotated[float, typer.Option(min=0.0, max=1.0)] = 0.6,
+    max_steps: Annotated[int, typer.Option(min=1)] = 8,
+    concurrency: Annotated[int, typer.Option(min=1)] = 4,
+    max_usd: Annotated[float | None, typer.Option(help="stop when spend reaches this")] = None,
+    price_in: Annotated[float | None, typer.Option(help="USD per 1M input tokens")] = None,
+    price_out: Annotated[float | None, typer.Option(help="USD per 1M output tokens")] = None,
+    ollama_url: Annotated[str, typer.Option()] = "http://localhost:11434",
+    out: Annotated[Path | None, typer.Option(help="write a markdown report here")] = None,
+    cache: Annotated[Path | None, typer.Option(help="JSONL results cache (resumable)")] = None,
+    workdir: Annotated[Path, typer.Option()] = Path("logs/agent-runs"),
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Run scenarios with an LLM agent behind ProvMCP and measure attack success.
+
+    Conditions: none (no ProvMCP), audit (ProvMCP logs only: the baseline),
+    warn (held calls are never approved), strict (flagged calls are blocked).
+    Results are cached, so an interrupted run resumes with the same command.
+    """
+    import logging
+    from datetime import date
+
+    from provmcp.agent.backends import (
+        AnthropicBackend,
+        Backend,
+        BackendError,
+        OllamaBackend,
+        ScriptedBackend,
+    )
+    from provmcp.agent.experiment import (
+        KNOWN_PRICES,
+        estimate_tokens,
+        render_report,
+        run_suite,
+        select_scenarios,
+    )
+    from provmcp.agent.runner import CONDITIONS, SYSTEM_PROMPT
+    from provmcp.benchmark import Scenario
+    from provmcp.config import DetectorName
+
+    logging.getLogger("provmcp").setLevel(logging.ERROR)  # the report carries the decisions
+    condition_list = [c.strip() for c in conditions.split(",") if c.strip()]
+    unknown = [c for c in condition_list if c not in CONDITIONS]
+    if unknown:
+        raise typer.BadParameter(f"unknown condition(s) {unknown}; use {sorted(CONDITIONS)}")
+    allowed: dict[str, DetectorName] = {
+        "substring": "substring",
+        "structured": "structured",
+        "embedding": "embedding",
+    }
+    detector_list = [allowed[d.strip()] for d in detectors.split(",") if d.strip() in allowed]
+    if not detector_list:
+        raise typer.BadParameter("no valid detectors; use substring, structured, embedding")
+    if backend in {"anthropic", "ollama"} and not model:
+        raise typer.BadParameter(f"--model is required for --backend {backend}")
+    model_name = model or "scripted"
+    known_in, known_out = KNOWN_PRICES.get(model_name, (0.0, 0.0))
+    p_in = price_in if price_in is not None else known_in
+    p_out = price_out if price_out is not None else known_out
+    if backend == "anthropic" and model_name not in KNOWN_PRICES and price_in is None:
+        console.print(
+            f"[yellow]No price known for {model_name}; pass --price-in/--price-out "
+            "for cost tracking and --max-usd.[/yellow]"
+        )
+
+    chosen, notes = select_scenarios(
+        scenarios, limit=limit, seed=seed, include_same_server=include_same_server
+    )
+    for note in notes:
+        console.print(f"  note: {note}")
+    if not chosen:
+        console.print("[red]No runnable scenarios (need a task and an oracle).[/red]")
+        raise typer.Exit(code=1)
+
+    episodes = len(chosen) * len(condition_list) * trials
+    est_in = est_out = 0
+    for scenario in chosen:
+        i, o = estimate_tokens(scenario, max_steps)
+        est_in += i * len(condition_list) * trials
+        est_out += o * len(condition_list) * trials
+    est_cost = (est_in * p_in + est_out * p_out) / 1_000_000
+    console.print(
+        f"{len(chosen)} scenario(s) x {len(condition_list)} condition(s) x {trials} trial(s) "
+        f"= [bold]{episodes}[/bold] episode(s); backend={backend} model={model_name}"
+    )
+    console.print(
+        f"  rough estimate: {est_in:,} input + {est_out:,} output tokens ≈ ${est_cost:.2f} "
+        f"(at ${p_in}/{p_out} per 1M)"
+    )
+    if dry_run:
+        return
+
+    def make_backend(scenario: Scenario) -> Backend:
+        if backend == "scripted":
+            return ScriptedBackend.from_scenario(scenario)
+        if backend == "anthropic":
+            return AnthropicBackend(model_name)
+        if backend == "ollama":
+            return OllamaBackend(model_name, base_url=ollama_url)
+        raise typer.BadParameter(f"unknown backend {backend!r}")
+
+    if chosen:
+        try:
+            make_backend(chosen[0])
+        except BackendError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=2) from exc
+
+    safe_model = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in model_name)
+    cache_path = cache or Path("logs") / f"agent-cache-{backend}-{safe_model}.jsonl"
+    try:
+        results = asyncio.run(
+            run_suite(
+                chosen,
+                make_backend,
+                model=model_name,
+                conditions=condition_list,
+                trials=trials,
+                workroot=workdir,
+                cache=cache_path,
+                detectors=detector_list,
+                threshold=threshold,
+                max_steps=max_steps,
+                concurrency=1 if backend == "scripted" else concurrency,
+                price_in=p_in,
+                price_out=p_out,
+                max_usd=max_usd,
+                progress=console.print,
+            )
+        )
+    except BackendError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
+    spent = sum(r.input_tokens * p_in + r.output_tokens * p_out for r in results) / 1_000_000
+    report = render_report(
+        results,
+        title=f"Agent baseline: {backend} / {model_name}",
+        settings={
+            "date": date.today().isoformat(),
+            "provmcp": __version__,
+            "backend / model": f"{backend} / {model_name}",
+            "conditions": ", ".join(condition_list),
+            "trials": str(trials),
+            "detectors / threshold": f"{', '.join(detector_list)} / {threshold}",
+            "max steps": str(max_steps),
+            "scenarios": ", ".join(str(p) for p in scenarios)
+            + (f" (limit {limit} per path, seed {seed})" if limit else ""),
+            "system prompt": f'"{SYSTEM_PROMPT}"',
+            "cost": f"${spent:.4f} at ${p_in}/{p_out} per 1M tokens",
+            "cache": str(cache_path),
+        },
+    )
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report, encoding="utf-8")
+        console.print(f"Report written to [bold]{out}[/bold]")
+    else:
+        console.print(report)
+    console.print(f"{len(results)} episode(s) reported; spend ${spent:.4f}")
+
+
+@app.command(name="agent-report")
+def agent_report(
+    cache: Annotated[Path, typer.Option("--cache", exists=True, help="agent-run JSONL cache")],
+    scenarios: Annotated[
+        list[Path], typer.Option("--scenarios", "-s", exists=True, help="directory or file")
+    ],
+    conditions: Annotated[str | None, typer.Option(help="comma list to keep")] = None,
+    out: Annotated[Path | None, typer.Option(help="write the markdown report here")] = None,
+) -> None:
+    """Re-score cached agent episodes with the current oracles and write a report.
+
+    Makes no model calls, so it is free. Use it after an oracle changes, or to
+    build a report for a subset of the scenarios in a cache.
+    """
+    from datetime import date
+
+    from provmcp.agent.experiment import KNOWN_PRICES, load_cache, render_report, rescore
+    from provmcp.benchmark import Scenario, load_scenario, load_scenarios
+
+    by_id: dict[str, Scenario] = {}
+    for path in scenarios:
+        for scenario in load_scenarios(path) if path.is_dir() else [load_scenario(path)]:
+            by_id[scenario.id] = scenario
+    keep = {c.strip() for c in conditions.split(",")} if conditions else None
+    cached = [
+        r
+        for r in load_cache(cache).values()
+        if r.scenario_id in by_id and (keep is None or r.condition in keep)
+    ]
+    results, missing = rescore(cached, by_id)
+    if not results:
+        console.print("[red]No cached episodes match these scenarios.[/red]")
+        raise typer.Exit(code=1)
+    models = sorted({f"{r.backend} / {r.model}" for r in results})
+    price_in, price_out = KNOWN_PRICES.get(results[0].model, (0.0, 0.0))
+    spent = sum(r.input_tokens * price_in + r.output_tokens * price_out for r in results)
+    report = render_report(
+        results,
+        title=f"Agent baseline (rescored): {', '.join(models)}",
+        settings={
+            "date": date.today().isoformat(),
+            "provmcp": __version__,
+            "backend / model": ", ".join(models),
+            "conditions": ", ".join(sorted({r.condition for r in results})),
+            "trials": str(max(r.trial for r in results) + 1),
+            "scenarios": ", ".join(str(p) for p in scenarios),
+            "scoring": "rescored from cache: attack goals must follow the entry call and "
+            "carry argument evidence",
+            "cost of the original runs": f"${spent / 1_000_000:.4f}",
+            "cache": str(cache),
+        },
+    )
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(report, encoding="utf-8")
+        console.print(f"Report written to [bold]{out}[/bold] ({len(results)} episode(s))")
+    else:
+        console.print(report)
+    if missing:
+        console.print(f"  note: {len(missing)} cached scenario id(s) had no oracle")
+
+
 if __name__ == "__main__":
     app()
