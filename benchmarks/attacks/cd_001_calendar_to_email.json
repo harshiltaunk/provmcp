@@ -117,5 +117,8 @@
       }
     ]
   },
-  "ground_truth": "cross_server_influence"
+  "ground_truth": "cross_server_influence",
+  "metadata": {
+    "technique": "verbatim instruction and address"
+  }
 }

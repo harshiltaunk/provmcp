@@ -18,7 +18,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from provmcp.agent.backends import Backend, BackendError
-from provmcp.agent.runner import EpisodeResult, run_episode, scenario_group, score_episode
+from provmcp.agent.runner import (
+    EpisodeResult,
+    detection_label,
+    run_episode,
+    scenario_group,
+    score_episode,
+)
 from provmcp.benchmark import Scenario, load_scenario, load_scenarios
 from provmcp.config import DetectionConfig, DetectorName
 
@@ -56,14 +62,18 @@ class Job:
     condition: str
     trial: int
     model: str
+    detection: str = ""
 
     @property
     def key(self) -> str:
-        return episode_key(self.scenario.id, self.condition, self.model, self.trial)
+        return episode_key(self.scenario.id, self.condition, self.model, self.trial, self.detection)
 
 
-def episode_key(scenario_id: str, condition: str, model: str, trial: int) -> str:
-    return f"{scenario_id}|{condition}|{model}|{trial}"
+def episode_key(
+    scenario_id: str, condition: str, model: str, trial: int, detection: str = ""
+) -> str:
+    """Cache key. Since Week 10 it includes the detector settings."""
+    return f"{scenario_id}|{condition}|{model}|{trial}|{detection}"
 
 
 def cost_usd(result: EpisodeResult, price_in: float, price_out: float) -> float:
@@ -109,9 +119,10 @@ def load_cache(path: Path | None) -> dict[str, EpisodeResult]:
             continue
         result = EpisodeResult.from_json(json.loads(line))
         if result.error is None:
-            done[episode_key(result.scenario_id, result.condition, result.model, result.trial)] = (
-                result
+            key = episode_key(
+                result.scenario_id, result.condition, result.model, result.trial, result.detection
             )
+            done[key] = result
     return done
 
 
@@ -174,8 +185,9 @@ async def run_suite(
     """Run every (scenario, condition, trial) not already in the cache."""
     say = progress or (lambda _msg: None)
     done = load_cache(cache)
+    labels = {c: detection_label(c, detection, detectors, threshold) for c in conditions}
     jobs = [
-        Job(scenario, condition, trial, model)
+        Job(scenario, condition, trial, model, labels[condition])
         for scenario in scenarios
         for condition in conditions
         for trial in range(trials)

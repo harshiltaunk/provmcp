@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 9 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios including ten new multi-server attacks, tool-metadata provenance, and per-detector thresholds calibrated on a held-out split (Week 9). 206 tests.
+**Status:** Week 10 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a full evaluation of every detection strategy at four levels with confidence intervals and figures (Week 10). 216 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 206 passed
+pytest -q                           # 216 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -82,6 +82,9 @@ provmcp agent-replay --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
   -s benchmarks/attacks -s benchmarks/benign -s benchmarks/msb \
   --thresholds none --no-track-tool-metadata     # Week 7 settings; drop for the defaults
 
+# the full evaluation: every strategy, four levels, intervals, figures (no model calls)
+python scripts/evaluate_week10.py --run haiku=logs/agent-cache-haiku-week10.jsonl
+
 # rescore a cache with the current oracles and rebuild a report (no model calls)
 provmcp agent-report --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
   -s benchmarks/external/injecagent --out docs/results/baseline-week8-haiku-injecagent.md
@@ -106,6 +109,8 @@ src/provmcp/
   detectors/          substring, structured, embedding, composite
   server.py           HTTP daemon (FastAPI)
   bridge.py           stdio bridges (daemon and direct mode)
+  evaluation.py       Week 10 strategies, levels and Wilson intervals
+  svgchart.py         dependency-free SVG charts for the reports
   agent/              LLM agent harness: backends, episode runner, suite + report
   importers/          InjecAgent -> multi-server scenarios
   transports/         stdio and HTTP clients for backing servers
@@ -125,7 +130,7 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week9.sh
+bash scripts/verify_week10.sh
 ```
 
 ## Known limitations

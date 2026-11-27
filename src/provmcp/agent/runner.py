@@ -91,6 +91,7 @@ class EpisodeResult:
     seconds: float = 0.0
     final_text: str = ""
     error: str | None = None
+    detection: str = ""  # detector settings in force (see detection_label)
     calls: list[CallRecord] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
@@ -101,6 +102,31 @@ class EpisodeResult:
         calls = [CallRecord(**c) for c in data.get("calls", [])]
         fields = {k: v for k, v in data.items() if k != "calls"}
         return cls(**fields, calls=calls)
+
+
+def detection_label(
+    condition: str,
+    detection: DetectionConfig | None,
+    detectors: Sequence[DetectorName] = ("substring", "structured"),
+    threshold: float = 0.6,
+) -> str:
+    """A stable, readable summary of the detector settings an episode ran with.
+
+    It is part of the cache key, so runs with different settings are never
+    mixed up or reused for each other (Week 10).
+    """
+    if CONDITIONS.get(condition) is None:
+        return "off"
+    det = detection or DetectionConfig(detectors=list(detectors))
+    gates = (
+        ",".join(f"{k}:{v:g}" for k, v in sorted(det.thresholds.items()))
+        if det.thresholds
+        else f"global:{threshold:g}"
+    )
+    return (
+        f"{'+'.join(det.detectors)}; {gates}; score:{det.substring_score}; "
+        f"metadata:{'on' if det.track_tool_metadata else 'off'}"
+    )
 
 
 def scenario_group(scenario: Scenario) -> str:
@@ -231,6 +257,7 @@ async def run_episode(
         model=backend.model,
         trial=trial,
         is_attack=scenario.is_attack,
+        detection=detection_label(condition, detection, detectors, threshold),
     )
     config = build_config(
         scenario_file,
