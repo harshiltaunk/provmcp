@@ -39,7 +39,17 @@ def _extract_runs(text: str, min_len: int) -> list[str]:
 
 
 class SubstringDetector:
-    """Flag outbound call parameters that reuse content from another server."""
+    """Flag outbound call parameters that reuse content from another server.
+
+    Parameters
+    ----------
+    min_run_length:
+        Minimum character run length to consider "distinctive". Short runs
+        (e.g. "the", "GET") match too often to be useful.
+    confidence_scale:
+        Longer matched runs yield higher confidence. This caps the mapping
+        so a very long match does not peg the score at 1.0 immediately.
+    """
 
     name = "substring"
 
@@ -66,6 +76,7 @@ class SubstringDetector:
             if match is None:
                 continue
             source = payload.tag.server_id
+            # Keep the strongest match per source to avoid duplicate findings.
             if source not in seen_by_source or len(match) > len(seen_by_source[source]):
                 seen_by_source[source] = match
 
@@ -100,5 +111,6 @@ class SubstringDetector:
         return best
 
     def _score(self, match: str) -> float:
+        # Smooth linear-to-asymptote mapping from match length to [0, 1).
         length = len(match)
         return min(0.99, length / (length + self.confidence_scale))

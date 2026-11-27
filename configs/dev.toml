@@ -16,13 +16,14 @@ transport = "stdio"
 command = ["python", "examples/dummy_server/echo_server.py"]
 
 
+
  [[servers]]
  id = "time"
  display_name = "Time (reference)"
  trust = "trusted"
  transport = "stdio"
  command = ["uvx", "mcp-server-time"]
-
+#
 # [[servers]]
 # id = "filesystem"
 # display_name = "Filesystem (reference)"
