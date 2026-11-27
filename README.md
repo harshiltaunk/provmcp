@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 9 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios including ten new multi-server attacks, tool-metadata provenance, and per-detector thresholds calibrated on a held-out split (Week 9). 205 tests.
+**Status:** Week 9 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios including ten new multi-server attacks, tool-metadata provenance, and per-detector thresholds calibrated on a held-out split (Week 9). 206 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 205 passed
+pytest -q                           # 206 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -59,7 +59,7 @@ provmcp audit -c configs/dev.toml                       # 4. see every decision
 
 Policies can be overridden per (source, target) server pair, and trusted values (for example your own contacts) can be allowlisted. See `configs/dev.toml`.
 
-Detection defaults (since 0.9.0) are calibrated on a held-out split and checked on real Claude traffic: substring 0.428 and structured 0.85, each with its own threshold, and tool descriptions (`tools/list`) tracked as a provenance source. `thresholds = {}` and `track_tool_metadata = false` restore the Week 7 behaviour. The embedding detector is calibrated (0.429) but opt-in. See `docs/week-09.md`.
+Detection defaults (since 0.9.0) are calibrated on a held-out split and checked on real Claude traffic: substring 0.428 and structured 0.85, each with its own threshold, and tool descriptions (`tools/list`) tracked as a provenance source. `thresholds = {}` and `track_tool_metadata = false` restore the Week 7 behaviour. The embedding detector is calibrated (see `docs/results/calibration-week9.md`) but opt-in. See `docs/week-09.md`.
 
 ## Measuring attack success with an LLM
 

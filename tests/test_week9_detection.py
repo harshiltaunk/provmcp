@@ -193,3 +193,13 @@ def test_scenario_files_are_valid_json_with_traces() -> None:
         for path in sorted((REPO / "benchmarks" / d).glob("*.json")):
             data = json.loads(path.read_text())
             assert data["trace"], path.name
+
+
+def test_embedding_keeps_its_week5_text_flattening() -> None:
+    """Week 6 results must reproduce: embedding inputs may not follow substring's changes."""
+    from provmcp.detectors import embedding, substring
+
+    content = {"to": "a@b.example", "body": "hello there"}
+    assert embedding._flatten_to_text(content) == json.dumps(content, sort_keys=True)
+    assert substring._flatten_to_text(content) == "a@b.example\nhello there"
+    assert embedding._flatten_to_text is not substring._flatten_to_text

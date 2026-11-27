@@ -11,7 +11,7 @@ export HF_HUB_OFFLINE=1
 export LC_ALL=C
 
 VERSION="0.9.0"
-EXPECTED_TESTS=205
+EXPECTED_TESTS=206
 SUITES="-s benchmarks/attacks -s benchmarks/benign -s benchmarks/msb"
 WEEK7="--thresholds none --no-track-tool-metadata"
 HAIKU="logs/agent-cache-anthropic-claude-haiku-5-5.jsonl"

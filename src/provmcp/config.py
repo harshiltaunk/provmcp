@@ -124,9 +124,9 @@ class DetectionConfig(BaseModel):
     Defaults (0.9.0) are the Week 9 calibration: substring 0.428 and
     structured 0.85, chosen on the calibration split, confirmed on the
     held-out split, and replayed on 355 real Claude Haiku 5.5 runs with no
-    added false alarms. See docs/week-09.md. Embedding is calibrated (0.429)
-    but stays opt-in until its real-traffic false alarms and latency are
-    measured.
+    added false alarms. See docs/week-09.md. Embedding is calibrated in
+    docs/results/calibration-week9.md but stays opt-in until its real-traffic
+    false alarms and latency are measured.
     """
 
     enabled: bool = True

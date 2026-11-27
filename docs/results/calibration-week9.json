@@ -3,7 +3,7 @@
   "thresholds": {
     "substring": 0.428,
     "structured": 0.85,
-    "embedding": 0.429
+    "embedding": 0.51
   },
   "track_tool_metadata": true
 }

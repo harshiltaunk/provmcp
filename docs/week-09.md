@@ -24,7 +24,11 @@ reuse (the substring detector never reached the live threshold).
 - **Bug fix: key names no longer count as copied content.** The substring
   detector matched the call's JSON key names. In `cd-007`, the key
   `reference` matched the word "reference" in the poisoned email. Matching now
-  uses values only. The frozen Week 6 results are unchanged.
+  uses values only. The embedding detector had shared the same text helper,
+  so the first version of this fix also changed embedding inputs and broke
+  the byte-for-byte reproduction of `eval-week6-t072.md`. `verify_week9.sh`
+  caught it. The embedding detector now keeps its own copy of the old helper,
+  and a regression test pins it. The frozen Week 6 results reproduce again.
 - **Fixed calibration split** (`benchmarks/splits/week9.json`): 27
   scenarios, stratified, assigned by a hash of each id. Calibration has 9
   attacks and 5 benign; held-out has 8 attacks and 5 benign.
@@ -77,14 +81,13 @@ Full report: `docs/results/calibration-week9.md`.
 | substring (longest) | **0.428** | 0.56 / 0.20 | 0.75 / 0.40 |
 | substring (coverage) | 0.438 | 0.67 / 0.40 | 0.75 / 0.00 |
 | structured | **0.850** | 0.33 / 0.20 | 0.62 / 0.40 |
-| embedding (MiniLM) | 0.429 | 0.89 / 0.40 | 1.00 / 0.40 |
+| embedding (MiniLM) | see report | see report | see report |
 
 | live policy, held-out | TPR | FPR |
 |---|---|---|
 | Week 7 settings | 0.75 (6/8) | 0.40 (2/5) |
 | Week 7 settings + tool metadata | 0.75 (6/8) | 0.40 (2/5) |
 | **Week 9 calibrated** (longest substring 0.428, structured 0.85, metadata) | **0.88 (7/8)** | 0.40 (2/5) |
-| Week 9 calibrated + embedding 0.429 | 1.00 (8/8) | 0.40 (2/5) |
 
 Over all 27 scenarios, the calibrated settings flag **12 of 17 attacks**,
 against 8 of 17 for the Week 7 settings (any flagged step, offline). The false alarms stay at 3 of 10
@@ -98,11 +101,9 @@ Cautions:
    (FPR 0.00 against 0.40). But the rule chose longest on calibration
    (J 0.36 against 0.27), and switching now would tune on the test set.
    Week 10 can compare both on new data.
-3. **Embedding at 0.429 is a topic detector, not a paraphrase detector.**
-   It scores best on the corpus. But a cosine similarity of 0.43 between
-   MiniLM sentence embeddings means "about the same subject", and its false
-   alarms on real traffic and its latency are not measured yet. It stays
-   opt-in until Weeks 10–11.
+3. **Embedding stays opt-in.** Its calibrated threshold is in the full
+   report, which needs sentence-transformers to generate. Its false alarms on
+   real traffic and its latency are not measured yet; that is Weeks 10–11.
 
 ## Real-traffic false alarms (replay of the Week 8 Haiku runs)
 
@@ -174,8 +175,8 @@ The settings are now frozen for the Week 10 evaluation.
 
 ## Test counts
 
-- **205 tests, all passing** (was 182).
-- New files: `test_week9_detection.py` (16) and `test_replay_and_calibration.py`
+- **206 tests, all passing** (was 182).
+- New files: `test_week9_detection.py` (17) and `test_replay_and_calibration.py`
   (7). `test_benchmark.py` and `test_scenarios_v2.py` are updated for the
   larger corpus.
 
@@ -198,5 +199,5 @@ bash scripts/verify_week9.sh
   Haiku 5.5 and a local model, on all 27 scenarios plus InjecAgent.
 - Run Haiku on the 16 new scenarios (the Week 8 runs predate them), with
   the frozen 0.9.0 defaults.
-- Replay real traffic with the embedding detector at 0.429 to measure its
+- Replay real traffic with the embedding detector at its calibrated threshold to measure its
   false alarms; its latency is Week 11.
