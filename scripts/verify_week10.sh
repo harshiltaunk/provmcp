@@ -59,9 +59,13 @@ import xml.etree.ElementTree as ET; ET.parse('$tmp/fig/week10-corpus.svg')"
 echo "== 6. Saved results =="
 saved=docs/results/eval-week10.md
 check "$saved exists" test -s "$saved"
-check "saved corpus rows match a fresh run" sh -c \
-  "grep -E '^\| (Week 7 settings|substring|structured|0.9.0 default) \|' '$tmp/e.md' | head -4 > '$tmp/a'; \
-   grep -E '^\| (Week 7 settings|substring|structured|0.9.0 default) \|' '$saved' | head -4 > '$tmp/b'; diff -q '$tmp/a' '$tmp/b'"
+check "saved corpus rows match a fresh run (non-embedding strategies)" python -c "
+def rows(path):
+    text = open(path).read()
+    section = text[text.index('## 1. Corpus'):text.index('![Corpus')]
+    return [l for l in section.splitlines() if l.startswith('| ') and 'embedding' not in l]
+fresh, saved = rows('$tmp/e.md'), rows('$saved')
+assert len(fresh) == 5 and fresh == saved, (fresh, saved)"
 check "docs/results/eval-week10.json parses" python -c "import json; json.load(open('docs/results/eval-week10.json'))"
 for fig in week10-corpus week10-injecagent; do
   if [ -f "docs/results/figures/$fig.svg" ]; then

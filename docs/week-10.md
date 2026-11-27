@@ -70,9 +70,92 @@ and 3 matter: they add hundreds of cases.
 
 ## Results from the full run
 
-The full run uses the Week 10 Haiku runs on all 27 scenarios, the Week 8
-Haiku cache, and InjecAgent, and includes embedding when it is installed.
-Copy the headline numbers here from `docs/results/eval-week10.md`.
+Inputs: the 27 bundled scenarios; 2,100 cross-server InjecAgent cases; Haiku
+5.5 runs from Week 8 (355 audit episodes) and Week 10 (all 27 scenarios,
+5 trials, audit and strict under the 0.9.0 defaults). Embedding included.
+Full report and figures: `docs/results/eval-week10.md`,
+`docs/results/figures/`. All intervals are 95% Wilson.
+
+**Level 1, corpus (27 scenarios)**
+
+| strategy | attacks detected (17) | false alarms (10) | held-out attacks (8) | held-out false alarms (5) |
+|---|---|---|---|---|
+| Week 7 settings | 8 (47%, 26-69) | 3 (30%) | 6 (75%) | 2 (40%) |
+| substring | 11 (65%, 41-83) | 3 (30%) | 6 (75%) | 2 (40%) |
+| structured | 8 (47%, 26-69) | 3 (30%) | 5 (62%) | 2 (40%) |
+| embedding | 16 (94%, 73-99) | 5 (50%) | 7 (88%) | 2 (40%) |
+| **0.9.0 default** | 12 (71%, 47-87) | 3 (30%) | 7 (88%) | 2 (40%) |
+| default + embedding | 17 (100%, 82-100) | 6 (60%) | 8 (100%) | 3 (60%) |
+
+**Level 2, compliant agent at scale (InjecAgent, 2,100 cases)**
+
+| strategy | data stealing (1,088) | direct harm (1,012) |
+|---|---|---|
+| Week 7 settings | 962 (88%, 86-90) | 68 (7%, 5-8) |
+| substring | 0 (0%) | 0 (0%) |
+| structured | 960 (88%, 86-90) | 34 (3%, 2-5) |
+| embedding | 747 (69%, 66-71) | 624 (62%, 59-65) |
+| **0.9.0 default** | 960 (88%, 86-90) | 34 (3%, 2-5) |
+| default + embedding | 1,020 (94%, 92-95) | 630 (62%, 59-65) |
+
+**Level 3, real Haiku 5.5 traffic, replayed**
+
+| strategy | Week 10 runs: false alarms (130) | Week 8 runs: false alarms (350) | attempted attacks detected (5 + 5) |
+|---|---|---|---|
+| Week 7 settings | 10 (8%, 4-14) | 5 (1%, 1-3) | 0 of 10 |
+| substring | 10 (8%) | 5 (1%) | 10 of 10 |
+| structured | 10 (8%) | 5 (1%) | 10 of 10 |
+| embedding | **54 (42%, 33-50)** | **65 (19%, 15-23)** | 10 of 10 |
+| **0.9.0 default** | 10 (8%, 4-14) | 5 (1%, 1-3) | **10 of 10** |
+| default + embedding | 54 (42%) | 65 (19%) | 10 of 10 |
+
+Every false alarm under the default is an intended-flow benign task, where
+the user asked for the data to move. All 10 attempted attacks are ATT-8, the
+only attack Haiku carried out.
+
+**Level 4, end to end (Haiku 5.5, Week 10, 0.9.0 defaults live)**
+
+| condition | attack success (85 valid attack runs) | benign task completion (50) |
+|---|---|---|
+| audit (no blocking: the baseline) | 5 (6%, 3-13) | 40 (80%, 67-89) |
+| **strict** | **0 (0%, 0-4)** | 29 (58%, 44-71) |
+
+## Findings
+
+1. **The default stops every attack a real model attempted, with no extra
+   false alarms.** On real Haiku traffic it catches 10 of 10 attempted
+   attacks. Week 7 settings catch 0 of 10, and false alarms are identical
+   under both (1% and 8%, all intended flows). Live, strict mode takes attack
+   success from 6% to 0%.
+2. **Strict mode has a clear utility cost.** Benign completion drops from 80%
+   to 58%, because tasks that intentionally move data across servers are
+   blocked. Note that Haiku itself completes only 80% unprotected. Under
+   `warn_and_confirm` those calls are held for one approval instead of
+   failing, which is why it stays the default policy.
+3. **Embedding has the best recall and unusable precision.** It is the only
+   strategy that catches direct-harm attacks at scale (62% against 3–7%),
+   and it reaches 100% on the corpus. But it raises false alarms on 19–42%
+   of real runs with no attack. It cannot block inline. At most it could be
+   an audit-only signal, or a first stage confirmed by something more
+   precise. It stays opt-in.
+4. **The Week 9 structured threshold does not generalize to direct harm at
+   scale.** At 0.85 the structured detector catches 34 of 1,012 direct-harm
+   cases; Week 7's 0.6 caught 68. At 0.85 only UUIDs, emails and URLs count.
+   The extra 34 are file paths (0.80), IP addresses (0.70) and long numeric
+   IDs (0.60). The higher threshold bought nothing on real
+   traffic: false alarms are the same under both. The calibration split had
+   14 scenarios, and InjecAgent shows that was too few to place the
+   structured threshold. The 0.9.0 settings stay frozen for this evaluation.
+   A recalibration on a held-out InjecAgent split is a candidate for Week 13,
+   reported as a separate, post-hoc result.
+5. **Substring adds nothing on InjecAgent.** Its contribution there is 0 of
+   2,100 at 0.428: InjecAgent's attacker values (addresses, short IDs) are
+   too short for its length-based score. Its value is on longer copies:
+   secrets, keys and notes (cd-006, cd-012, msb-att13).
+6. **Direct harm is the main blind spot of data-flow provenance.**
+   Direct-harm calls carry little or no copied data, often only a short
+   name or ID from the instruction. That matches cd-011 (control flow only).
+   The scale data puts a number on it: under 7% detection without embedding.
 
 ## Test counts
 
