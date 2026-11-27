@@ -7,18 +7,18 @@ without spinning up the proxy.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class PolicyAction(str, Enum):
+class PolicyAction(StrEnum):
     PASS = "pass"
     WARN = "warn"
     BLOCK = "block"
 
 
-class PolicyTemplate(str, Enum):
+class PolicyTemplate(StrEnum):
     STRICT = "strict"
     WARN_AND_CONFIRM = "warn_and_confirm"
     AUDIT = "audit"

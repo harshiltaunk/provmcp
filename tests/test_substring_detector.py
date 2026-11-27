@@ -14,9 +14,11 @@ def _seed_store(items: list[tuple[str, object]]) -> ProvenanceStore:
 
 
 def test_detects_direct_propagation_across_servers() -> None:
-    store = _seed_store([
-        ("calendar", {"text": "Lunch at Blueberry-Cafe-1138 with team"}),
-    ])
+    store = _seed_store(
+        [
+            ("calendar", {"text": "Lunch at Blueberry-Cafe-1138 with team"}),
+        ]
+    )
     det = SubstringDetector(min_run_length=8)
     findings = det.scan(
         store=store,
@@ -31,9 +33,11 @@ def test_detects_direct_propagation_across_servers() -> None:
 
 
 def test_ignores_same_server_echo() -> None:
-    store = _seed_store([
-        ("email", {"text": "previously sent: urgent-reminder-xyz"}),
-    ])
+    store = _seed_store(
+        [
+            ("email", {"text": "previously sent: urgent-reminder-xyz"}),
+        ]
+    )
     det = SubstringDetector(min_run_length=6)
     findings = det.scan(
         store=store,
@@ -44,9 +48,11 @@ def test_ignores_same_server_echo() -> None:
 
 
 def test_ignores_short_runs() -> None:
-    store = _seed_store([
-        ("calendar", {"text": "The quick brown fox"}),
-    ])
+    store = _seed_store(
+        [
+            ("calendar", {"text": "The quick brown fox"}),
+        ]
+    )
     det = SubstringDetector(min_run_length=10)
     findings = det.scan(
         store=store,
@@ -79,9 +85,11 @@ def test_longer_match_yields_higher_confidence() -> None:
 
 
 def test_reports_once_per_source_server() -> None:
-    store = _seed_store([
-        ("calendar", {"text": "distinct-marker-ONE and distinct-marker-TWO"}),
-    ])
+    store = _seed_store(
+        [
+            ("calendar", {"text": "distinct-marker-ONE and distinct-marker-TWO"}),
+        ]
+    )
     det = SubstringDetector(min_run_length=8)
     findings = det.scan(
         store=store,
