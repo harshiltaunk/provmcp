@@ -60,7 +60,7 @@ else
 fi
 
 echo "== GitHub =="
-remote=$(gh api repos/harshiltaunk/provmcp/contents/docs/results --jq '.[].name' 2>/dev/null | sort | tr '\n' ' ')
+remote=$(gh api repos/harshiltaunk/provmcp/contents/docs/results --jq '.[].name' 2>/dev/null | LC_ALL=C sort | tr '\n' ' ')
 expected="README.md eval-week6-t052.md eval-week6-t072.md sweep-week5.txt sweep-week6.txt "
 if [ "$remote" = "$expected" ]; then ok "docs/results on GitHub (5 files)"; else bad "docs/results on GitHub: got '$remote'"; fi
 
