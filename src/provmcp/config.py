@@ -107,6 +107,9 @@ class ProxyConfig(BaseModel):
     approvals_file: str | None = None
     approval_ttl_seconds: float = Field(default=600.0, gt=0)
     pair_policies: list[PairPolicy] = Field(default_factory=list)
+    # Week 11: bound the provenance store (None = unbounded, as before 0.11).
+    provenance_max_per_server: int | None = Field(default=1000, ge=1)
+    provenance_ttl_seconds: float | None = Field(default=None, gt=0)
 
 
 class DetectionConfig(BaseModel):

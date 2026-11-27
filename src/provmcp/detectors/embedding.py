@@ -122,11 +122,7 @@ class EmbeddingDetector:
         if not outbound_sentences:
             return []
 
-        other_payloads = [
-            p
-            for p in store._payloads.values()  # noqa: SLF001
-            if p.tag.server_id != target_server_id
-        ]
+        other_payloads = [p for p in store.payloads() if p.tag.server_id != target_server_id]
         if not other_payloads:
             return []
 
@@ -136,10 +132,17 @@ class EmbeddingDetector:
         # For each other server, find the best cross-origin similarity.
         best_by_source: dict[str, tuple[float, str, str]] = {}
         for payload in other_payloads:
-            source_sentences = self._payload_sentences(payload)
+
+            def encode(p: TaggedPayload = payload) -> tuple[list[str], Any]:
+                sentences = self._payload_sentences(p)
+                if not sentences:
+                    return sentences, None
+                return sentences, model.encode(sentences, normalize_embeddings=True)
+
+            key = f"embedding:{self.model_name}:{self.min_sentence_chars}"
+            source_sentences, source_embeds = store.derived(payload.tag.tag_id, key, encode)
             if not source_sentences:
                 continue
-            source_embeds = model.encode(source_sentences, normalize_embeddings=True)
             # Cosine similarity via dot product on unit vectors.
             sims = source_embeds @ outbound_embeds.T
             # Argmax across (source, outbound) pairs for the strongest link.

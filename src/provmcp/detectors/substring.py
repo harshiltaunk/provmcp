@@ -102,7 +102,7 @@ class SubstringDetector:
         runs_by_source: dict[str, set[str]] = {}
 
         for payload in self._iter_other_server_payloads(store, target_server_id):
-            shared = self._shared_runs(payload, target_text)
+            shared = self._shared_runs(payload, target_text, store)
             if shared:
                 runs_by_source.setdefault(payload.tag.server_id, set()).update(shared)
 
@@ -128,14 +128,23 @@ class SubstringDetector:
         store: ProvenanceStore,
         target_server_id: str,
     ) -> Iterator[TaggedPayload]:
-        for payload in store._payloads.values():  # noqa: SLF001 (internal collab)
+        for payload in store.payloads():
             if payload.tag.server_id != target_server_id:
                 yield payload
 
-    def _shared_runs(self, payload: TaggedPayload, target_text: str) -> set[str]:
-        source_text = _flatten_to_text(payload.content)
-        runs = _extract_runs(source_text, self.min_run_length)
-        return {run for run in runs if run in target_text}
+    def _shared_runs(
+        self, payload: TaggedPayload, target_text: str, store: ProvenanceStore | None = None
+    ) -> set[str]:
+        def runs() -> frozenset[str]:
+            text = _flatten_to_text(payload.content)
+            return frozenset(_extract_runs(text, self.min_run_length))
+
+        source_runs = (
+            store.derived(payload.tag.tag_id, f"substring:runs:{self.min_run_length}", runs)
+            if store is not None
+            else runs()
+        )
+        return {run for run in source_runs if run in target_text}
 
     def _longest_shared_run(self, payload: TaggedPayload, target_text: str) -> str | None:
         shared = self._shared_runs(payload, target_text)
