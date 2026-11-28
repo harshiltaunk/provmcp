@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 13 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12); opt-in declared scope, which holds the agent to the servers and flows it names before reading any tool result (Week 13). 334 tests.
+**Status:** Week 14 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12); opt-in declared scope, which holds the agent to the servers and flows it names before reading any tool result (Week 13); real-model runs of the evasions on three Claude tiers, an ablation of the scope mechanism and paired tests (Week 14). 357 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 334 passed
+pytest -q                           # 357 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -156,6 +156,8 @@ src/provmcp/
   evaluation.py       Week 10 strategies, levels and Wilson intervals
   adaptive.py         Week 12 adaptive-adversary scoring and sweeps
   scope_eval.py       Week 13 scope strategies and declaration scoring
+  realworld.py        Week 14 episode facts (sent, leaked, flagged) and paired tests
+  recover.py          Week 14: can the value be recovered from what a server received?
   perf.py             Week 11 latency and memory benchmarks
   svgchart.py         dependency-free SVG charts for the reports
   agent/              LLM agent harness: backends, episode runner, suite + report,
@@ -167,6 +169,7 @@ benchmarks/           attack (cd-*), benign (bn-*) and MCPSecBench-derived (msb-
                       adaptive/ holds the Week 12 evasion scenarios (ad-*, bn-ad-*);
                       inplan/ and poisoned/ hold the Week 13 scope scenarios
                       (ip-*, bn-ip-*, dp-*, bn-dp-*);
+                      realworld/ holds the Week 14 real-model scenarios (rw-*, bn-rw-*);
                       splits/ holds the frozen Week 6 corpus and the Week 9 calibration split
 examples/             echo and scripted test servers
 configs/              dev.toml, demo-attack.toml
@@ -181,7 +184,7 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week13.sh
+bash scripts/verify_week14.sh
 ```
 
 ## Known limitations
