@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="336" viewBox="0 0 760 336" role="img" aria-labelledby="chart-title chart-desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="chart-title">End to end with haiku</title>
+<desc id="chart-desc">Attack success over valid attack runs; task completion over benign runs.</desc>
+<rect width="760" height="336" fill="#ffffff"/>
+<text x="16" y="28" font-size="15" font-weight="600" fill="#191919">End to end with haiku</text>
+<text x="16" y="48" font-size="12" fill="#666666">Attack success over valid attack runs; task completion over benign runs.</text>
+<rect x="250" y="62" width="10" height="10" rx="2" fill="#257de0"/>
+<text x="266" y="71" font-size="12" fill="#191919">attack success</text>
+<rect x="372" y="62" width="10" height="10" rx="2" fill="#f47230"/>
+<text x="388" y="71" font-size="12" fill="#191919">benign task completion</text>
+<text x="690" y="71" font-size="11" fill="#666666" text-anchor="end">whiskers: 95% Wilson interval</text>
+<line x1="250.0" y1="84" x2="250.0" y2="306" stroke="#e6e6e6" stroke-width="1"/>
+<text x="250.0" y="322" font-size="11" fill="#666666" text-anchor="middle">0%</text>
+<line x1="360.0" y1="84" x2="360.0" y2="306" stroke="#e6e6e6" stroke-width="1"/>
+<text x="360.0" y="322" font-size="11" fill="#666666" text-anchor="middle">25%</text>
+<line x1="470.0" y1="84" x2="470.0" y2="306" stroke="#e6e6e6" stroke-width="1"/>
+<text x="470.0" y="322" font-size="11" fill="#666666" text-anchor="middle">50%</text>
+<line x1="580.0" y1="84" x2="580.0" y2="306" stroke="#e6e6e6" stroke-width="1"/>
+<text x="580.0" y="322" font-size="11" fill="#666666" text-anchor="middle">75%</text>
+<line x1="690.0" y1="84" x2="690.0" y2="306" stroke="#e6e6e6" stroke-width="1"/>
+<text x="690.0" y="322" font-size="11" fill="#666666" text-anchor="middle">100%</text>
+<text x="240" y="109.0" font-size="12" fill="#191919" text-anchor="end">audit</text>
+<g>
+<title>audit, attack success: 25/99 (25%, 18-35)</title>
+<path d="M250.0,92.0 h107.1 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-107.1 Z" fill="#257de0"/>
+<line x1="328.0" y1="98.0" x2="402.3" y2="98.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="328.0" y1="94.0" x2="328.0" y2="102.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="402.3" y1="94.0" x2="402.3" y2="102.0" stroke="#666666" stroke-width="1.5"/>
+<text x="408.3" y="102" font-size="11" fill="#666666">25%</text>
+</g>
+<g>
+<title>audit, benign task completion: 45/51 (88%, 77-94)</title>
+<path d="M250.0,106.0 h384.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-384.2 Z" fill="#f47230"/>
+<line x1="587.1" y1="112.0" x2="665.8" y2="112.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="587.1" y1="108.0" x2="587.1" y2="116.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="665.8" y1="108.0" x2="665.8" y2="116.0" stroke="#666666" stroke-width="1.5"/>
+<text x="671.8" y="116" font-size="11" fill="#666666">88%</text>
+</g>
+<text x="240" y="151.0" font-size="12" fill="#191919" text-anchor="end">strict</text>
+<g>
+<title>strict, attack success: 2/99 (2%, 1-7)</title>
+<path d="M250.0,134.0 h4.9 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-4.9 Z" fill="#257de0"/>
+<line x1="252.4" y1="140.0" x2="281.1" y2="140.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="252.4" y1="136.0" x2="252.4" y2="144.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="281.1" y1="136.0" x2="281.1" y2="144.0" stroke="#666666" stroke-width="1.5"/>
+<text x="287.1" y="144" font-size="11" fill="#666666">2%</text>
+</g>
+<g>
+<title>strict, benign task completion: 29/51 (57%, 43-69)</title>
+<path d="M250.0,148.0 h246.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-246.2 Z" fill="#f47230"/>
+<line x1="440.4" y1="154.0" x2="555.8" y2="154.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="440.4" y1="150.0" x2="440.4" y2="158.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="555.8" y1="150.0" x2="555.8" y2="158.0" stroke="#666666" stroke-width="1.5"/>
+<text x="561.8" y="158" font-size="11" fill="#666666">57%</text>
+</g>
+<text x="240" y="193.0" font-size="12" fill="#191919" text-anchor="end">audit-scope</text>
+<g>
+<title>audit-scope, attack success: 9/99 (9%, 5-16)</title>
+<path d="M250.0,176.0 h36.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-36.0 Z" fill="#257de0"/>
+<line x1="271.4" y1="182.0" x2="322.1" y2="182.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="271.4" y1="178.0" x2="271.4" y2="186.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="322.1" y1="178.0" x2="322.1" y2="186.0" stroke="#666666" stroke-width="1.5"/>
+<text x="328.1" y="186" font-size="11" fill="#666666">9%</text>
+</g>
+<g>
+<title>audit-scope, benign task completion: 43/51 (84%, 72-92)</title>
+<path d="M250.0,190.0 h367.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-367.0 Z" fill="#f47230"/>
+<line x1="566.8" y1="196.0" x2="654.1" y2="196.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="566.8" y1="192.0" x2="566.8" y2="200.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="654.1" y1="192.0" x2="654.1" y2="200.0" stroke="#666666" stroke-width="1.5"/>
+<text x="660.1" y="200" font-size="11" fill="#666666">84%</text>
+</g>
+<text x="240" y="235.0" font-size="12" fill="#191919" text-anchor="end">strict-scope</text>
+<g>
+<title>strict-scope, attack success: 6/99 (6%, 3-13)</title>
+<path d="M250.0,218.0 h22.7 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-22.7 Z" fill="#257de0"/>
+<line x1="262.4" y1="224.0" x2="305.4" y2="224.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="262.4" y1="220.0" x2="262.4" y2="228.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="305.4" y1="220.0" x2="305.4" y2="228.0" stroke="#666666" stroke-width="1.5"/>
+<text x="311.4" y="228" font-size="11" fill="#666666">6%</text>
+</g>
+<g>
+<title>strict-scope, benign task completion: 43/51 (84%, 72-92)</title>
+<path d="M250.0,232.0 h367.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-367.0 Z" fill="#f47230"/>
+<line x1="566.8" y1="238.0" x2="654.1" y2="238.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="566.8" y1="234.0" x2="566.8" y2="242.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="654.1" y1="234.0" x2="654.1" y2="242.0" stroke="#666666" stroke-width="1.5"/>
+<text x="660.1" y="242" font-size="11" fill="#666666">84%</text>
+</g>
+<text x="240" y="277.0" font-size="12" fill="#191919" text-anchor="end">strict-oracle</text>
+<g>
+<title>strict-oracle, attack success: 8/99 (8%, 4-15)</title>
+<path d="M250.0,260.0 h31.6 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-31.6 Z" fill="#257de0"/>
+<line x1="268.3" y1="266.0" x2="316.6" y2="266.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="268.3" y1="262.0" x2="268.3" y2="270.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="316.6" y1="262.0" x2="316.6" y2="270.0" stroke="#666666" stroke-width="1.5"/>
+<text x="322.6" y="270" font-size="11" fill="#666666">8%</text>
+</g>
+<g>
+<title>strict-oracle, benign task completion: 45/51 (88%, 77-94)</title>
+<path d="M250.0,274.0 h384.2 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-384.2 Z" fill="#f47230"/>
+<line x1="587.1" y1="280.0" x2="665.8" y2="280.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="587.1" y1="276.0" x2="587.1" y2="284.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="665.8" y1="276.0" x2="665.8" y2="284.0" stroke="#666666" stroke-width="1.5"/>
+<text x="671.8" y="284" font-size="11" fill="#666666">88%</text>
+</g>
+</svg>

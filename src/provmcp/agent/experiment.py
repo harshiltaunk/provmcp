@@ -9,6 +9,7 @@ finished one is never paid for twice.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import random
 import re
@@ -110,6 +111,23 @@ def select_scenarios(
     return chosen, notes
 
 
+def run_order(scenarios: Sequence[Scenario], trials: int) -> list[tuple[Scenario, int]]:
+    """The order in which (scenario, trial) pairs are run.
+
+    Whole trials first, and inside a trial a fixed pseudo-random order of the
+    scenarios. A run that stops early (a spending cap, Ctrl-C) then leaves the
+    earlier trials complete and a random sample of the current one, instead of
+    only the scenarios at the top of the list.
+    """
+    pairs: list[tuple[Scenario, int]] = []
+    for trial in range(trials):
+        ordered = sorted(
+            scenarios, key=lambda s: hashlib.sha256(f"{trial}|{s.id}".encode()).hexdigest()
+        )
+        pairs.extend((scenario, trial) for scenario in ordered)
+    return pairs
+
+
 def load_cache(path: Path | None) -> dict[str, EpisodeResult]:
     done: dict[str, EpisodeResult] = {}
     if path is None or not path.is_file():
@@ -147,16 +165,20 @@ def rescore(
     return rescored, sorted(missing)
 
 
-def estimate_tokens(scenario: Scenario, max_steps: int) -> tuple[int, int]:
-    """Rough input/output token estimate for one episode (4 characters per token)."""
+def estimate_tokens(scenario: Scenario, max_steps: int, declare: bool = False) -> tuple[int, int]:
+    """Rough input/output token estimate for one episode (4 characters per token).
+
+    `declare` adds the `declare_scope` tool and the turn that calls it.
+    """
     schema_chars = len(
         json.dumps([s.canned.get("tools/list", {}) for s in scenario.servers], ensure_ascii=False)
     )
     result_chars = len(
         json.dumps([s.canned.get("responses", {}) for s in scenario.servers], ensure_ascii=False)
     )
-    turns = min(max_steps, max(2, len(scenario.trace) + 1))
-    per_turn = 300 + (schema_chars + len(scenario.task or "")) // 4
+    extra = 1 if declare else 0
+    turns = min(max_steps, max(2, len(scenario.trace) + 1)) + extra
+    per_turn = 300 + (schema_chars + len(scenario.task or "")) // 4 + (300 if declare else 0)
     input_tokens = turns * per_turn + (turns * (turns - 1) // 2) * (
         result_chars // 4 // turns + 150
     )
@@ -194,7 +216,16 @@ async def run_suite(
     ]
     wanted = {job.key for job in jobs}
     results: dict[str, EpisodeResult] = {k: v for k, v in done.items() if k in wanted}
-    pending = [job for job in jobs if job.key not in results]
+    # Run trial by trial; a scenario's conditions stay together (see `run_order`).
+    by_pair: dict[tuple[str, int], list[Job]] = {}
+    for job in jobs:
+        by_pair.setdefault((job.scenario.id, job.trial), []).append(job)
+    pending = [
+        job
+        for scenario, trial in run_order(scenarios, trials)
+        for job in by_pair.pop((scenario.id, trial), [])
+        if job.key not in results
+    ]
     spent = sum(cost_usd(r, price_in, price_out) for r in results.values())
     say(f"{len(jobs)} episode(s): {len(results)} cached, {len(pending)} to run")
     if cache is not None:
@@ -315,7 +346,15 @@ def render_report(
     *,
     title: str,
     settings: dict[str, str],
-    per_scenario_groups: Sequence[str] = ("provmcp-attacks", "provmcp-benign", "mcpsecbench"),
+    per_scenario_groups: Sequence[str] = (
+        "provmcp-attacks",
+        "provmcp-benign",
+        "mcpsecbench",
+        "in-plan",
+        "in-plan-benign",
+        "poisoned-catalog",
+        "poisoned-catalog-control",
+    ),
 ) -> str:
     rows = summarize(results)
     attack_groups = {r.group for r in results if r.is_attack}
@@ -372,6 +411,32 @@ def render_report(
                 f"| {r.scenario_id} | {r.condition} | {r.trial} | {yes[r.valid]} "
                 f"| {yes[r.attempted]} | {yes[r.succeeded]} | {yes[r.flagged_goal]} "
                 f"| {yes[r.blocked_goal]} |"
+            )
+    scoped = [r for r in results if r.scope_mode]
+    if scoped:
+        lines += [
+            "",
+            "## Declared scope",
+            "",
+            "*declared first*: the agent's first tool call was `declare_scope`. *refused "
+            "early*: calls made before any declaration. *change*: attempts to change the "
+            "scope after a tool result was read. *outside*: calls to a server not in the "
+            "scope. *let through*: findings ignored because the scope declares the flow.",
+            "",
+            "| condition | episodes | declared first | never declared | refused early | change "
+            "| calls outside | findings let through |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for condition in sorted({r.condition for r in scoped}):
+            eps = [r for r in scoped if r.condition == condition]
+            agent = [r for r in eps if r.scope_mode == "declared"]
+            lines.append(
+                f"| {condition} | {len(eps)} "
+                f"| {_pct(sum(r.declared_first for r in agent), len(agent))} "
+                f"| {sum(r.declared is None for r in eps)} | {sum(r.nudges for r in eps)} "
+                f"| {sum(r.late_declarations for r in eps)} "
+                f"| {sum(c.scope == 'out_of_scope' for r in eps for c in r.calls)} "
+                f"| {sum(c.suppressed for r in eps for c in r.calls)} |"
             )
     tokens_in = sum(r.input_tokens for r in results)
     tokens_out = sum(r.output_tokens for r in results)

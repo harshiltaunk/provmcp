@@ -14,6 +14,11 @@ For every `tools/call` the host sends, it:
    pending approval is created;
 6. writes an audit event.
 
+With a declared scope (Week 13, `provmcp.scope`) two checks come first: a
+call to a server outside the scope is a violation of its own, handled by the
+default policy; and a finding on a flow the scope declares is dropped, because
+the request asked for that flow.
+
 The Inspector is synchronous and does no I/O beyond the audit log and the
 approval file, so it can be tested without any transport.
 """
@@ -29,6 +34,7 @@ from provmcp.audit import AuditLog
 from provmcp.detectors.base import Detector
 from provmcp.policy import InfluenceFinding, PolicyAction, PolicyTemplate, decide
 from provmcp.provenance import ProvenanceStore
+from provmcp.scope import SCOPE_TOOL, Scope
 
 SEVERITY: dict[PolicyAction, int] = {
     PolicyAction.PASS: 0,
@@ -47,6 +53,11 @@ class Decision(BaseModel):
     findings: list[InfluenceFinding] = Field(default_factory=list)
     reason: str = ""
     approval_id: str | None = None
+    # Week 13. `scope` is "undeclared" (nothing declared yet) or "out_of_scope"
+    # (the server is not in the declared scope). `suppressed` counts findings
+    # dropped because the scope declares their flow.
+    scope: str | None = None
+    suppressed: int = 0
 
 
 class Inspector:
@@ -76,8 +87,11 @@ class Inspector:
         store: ProvenanceStore,
         target_server_id: str,
         params: dict[str, Any],
+        scope: Scope | None = None,
     ) -> Decision:
         tool = params.get("name") if isinstance(params.get("name"), str) else None
+        if scope is not None and not scope.allows_server(target_server_id):
+            return self._out_of_scope(target_server_id, tool, params)
         findings = [
             f
             for f in self.detector.scan(
@@ -85,15 +99,30 @@ class Inspector:
             )
             if f.confidence >= self.threshold
         ]
+        suppressed = 0
+        if scope is not None and findings:
+            kept = [
+                f for f in findings if not scope.allows_flow(f.source_server_id, target_server_id)
+            ]
+            suppressed = len(findings) - len(kept)
+            findings = kept
 
         if not findings:
-            return Decision(
+            decision = Decision(
                 action=PolicyAction.PASS,
                 template=self.template,
                 target=target_server_id,
                 tool=tool,
-                reason="no cross-server influence detected",
+                reason=(
+                    "the declared scope allows this flow"
+                    if suppressed
+                    else "no cross-server influence detected"
+                ),
+                suppressed=suppressed,
             )
+            if suppressed:
+                self.audit.record({"event": "decision", **decision.model_dump(mode="json")})
+            return decision
 
         action = PolicyAction.PASS
         template = self.template
@@ -111,6 +140,7 @@ class Inspector:
             target=target_server_id,
             tool=tool,
             findings=findings,
+            suppressed=suppressed,
         )
 
         if action is PolicyAction.BLOCK:
@@ -120,6 +150,41 @@ class Inspector:
         else:
             decision.reason = "audit policy: logged, not enforced"
 
+        self.audit.record({"event": "decision", **decision.model_dump(mode="json")})
+        return decision
+
+    def undeclared(self, target_server_id: str, params: dict[str, Any]) -> Decision:
+        """The call arrived before any scope was declared: refuse it, whatever the policy.
+
+        This is a protocol step, not a detection, so it is not written to the
+        audit log as a decision.
+        """
+        tool = params.get("name") if isinstance(params.get("name"), str) else None
+        return Decision(
+            action=PolicyAction.BLOCK,
+            template=self.template,
+            target=target_server_id,
+            tool=tool,
+            reason="no scope declared yet",
+            scope="undeclared",
+        )
+
+    def _out_of_scope(self, target: str, tool: str | None, params: dict[str, Any]) -> Decision:
+        decision = Decision(
+            action=PolicyAction.PASS,
+            template=self.template,
+            target=target,
+            tool=tool,
+            scope="out_of_scope",
+        )
+        if self.template is PolicyTemplate.STRICT:
+            decision.action = PolicyAction.BLOCK
+            decision.reason = "strict policy blocks a call outside the declared scope"
+        elif self.template is PolicyTemplate.WARN_AND_CONFIRM:
+            decision.action = PolicyAction.WARN
+            self._resolve_warning(decision, params)
+        else:
+            decision.reason = "audit policy: out-of-scope call logged, not enforced"
         self.audit.record({"event": "decision", **decision.model_dump(mode="json")})
         return decision
 
@@ -133,13 +198,16 @@ class Inspector:
             decision.action = PolicyAction.BLOCK
             decision.reason = "the user denied this exact call"
             return
-        sources = ", ".join(sorted({f.source_server_id for f in decision.findings}))
-        excerpt = decision.findings[0].excerpt
+        if decision.scope == "out_of_scope":
+            summary = f"call to {decision.target} is outside the declared scope"
+        else:
+            sources = ", ".join(sorted({f.source_server_id for f in decision.findings}))
+            summary = f"data from {sources} -> {decision.target}: {decision.findings[0].excerpt}"
         approval = self.approvals.request(
             fingerprint=fingerprint,
             target=decision.target,
             tool=decision.tool or "?",
-            summary=f"data from {sources} -> {decision.target}: {excerpt}"[:200],
+            summary=summary[:200],
         )
         decision.approval_id = approval.id
         decision.reason = "held for user approval"
@@ -154,7 +222,25 @@ def held_result(decision: Decision) -> dict[str, Any]:
     """
     sources = ", ".join(sorted({f.source_server_id for f in decision.findings})) or "another server"
     excerpt = decision.findings[0].excerpt if decision.findings else ""
-    if decision.action is PolicyAction.BLOCK:
+    if decision.scope == "undeclared":
+        text = (
+            f"ProvMCP needs the scope of this request before any other tool. Call "
+            f"`{SCOPE_TOOL}` with the servers the user's request needs and any data that "
+            "must move between them, then make this call again. The call was not sent."
+        )
+    elif decision.scope == "out_of_scope" and decision.action is PolicyAction.BLOCK:
+        text = (
+            f"ProvMCP blocked this call to '{decision.target}': that server is outside the "
+            "scope declared for this request. The call was not sent."
+        )
+    elif decision.scope == "out_of_scope":
+        text = (
+            f"ProvMCP is holding this call to '{decision.target}' for the user's approval: "
+            "that server is outside the scope declared for this request. "
+            f"Tell the user that approval {decision.approval_id} is waiting in ProvMCP. "
+            "If they approve it there, the same call can be retried once."
+        )
+    elif decision.action is PolicyAction.BLOCK:
         text = (
             f"ProvMCP blocked this call to '{decision.target}'. Its arguments contain data "
             f"that came from '{sources}' ({excerpt}). Reason: {decision.reason}. "

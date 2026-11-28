@@ -14,11 +14,17 @@ from rich.console import Console
 from rich.table import Table
 
 from provmcp import __version__
-from provmcp.config import DetectionConfig, load_config
+from provmcp.config import DetectionConfig, ScopeConfig, load_config
 from provmcp.detectors.base import Detector
 from provmcp.proxy import RpcRequest
 from provmcp.server import build_app
 from provmcp.wiring import build_approvals, build_audit, build_proxy
+
+# Shown with every cost estimate for Claude models.
+THINKING_NOTE = (
+    "note: current Claude models may think before answering, and thinking is billed as "
+    "output; the estimate leaves it out, so start with --trials 1 and a --max-usd cap"
+)
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 approvals_app = typer.Typer(no_args_is_help=True, help="Review calls held for approval.")
@@ -150,6 +156,12 @@ def run(
             console.print(f"  pair policy: {pair.source} -> {pair.target} = {pair.policy.value}")
         console.print(f"  audit log: {cfg.resolve_path(cfg.proxy.audit_log) or 'memory only'}")
         console.print(f"  approvals: {cfg.resolve_path(cfg.proxy.approvals_file) or 'memory only'}")
+        if cfg.scope.mode == "declare":
+            console.print(
+                "  declared scope: on (virtual server 'provmcp', tool 'declare_scope'"
+                + ("" if cfg.scope.honor_flows else "; declared flows not honored")
+                + ")"
+            )
     else:
         console.print("  inspection: [yellow]disabled[/yellow]")
     uvicorn.run(fastapi_app, host=bind_host, port=bind_port, log_level=log_level)
@@ -177,7 +189,17 @@ def bridge(
         return
     if config is None:
         raise typer.BadParameter("pass --via <daemon url> or --config <path>")
-    proxy = build_proxy(load_config(config))
+    cfg = load_config(config)
+    if cfg.scope.mode == "declare":
+        # Each direct bridge is its own process, so a scope declared through one
+        # would never reach the others and every call would be refused.
+        print(
+            "provmcp: declared scope needs the daemon (`provmcp run`); it is off in direct "
+            "bridge mode.",
+            file=sys.stderr,
+        )
+        cfg = cfg.model_copy(update={"scope": ScopeConfig(mode="off")})
+    proxy = build_proxy(cfg)
     asyncio.run(StdioBridge(proxy=proxy, server_id=server).run())
 
 
@@ -296,6 +318,25 @@ def export_claude_config(
         servers = {s.id: {"url": f"{daemon}/mcp/{s.id}", "transport": "http"} for s in cfg.servers}
     else:
         raise typer.BadParameter(f"unknown mode: {mode!r} (use daemon, bridge or http)")
+    if cfg.scope.mode == "declare" and cfg.detection.enabled and mode == "bridge":
+        print(
+            "provmcp: declared scope needs the daemon; --mode bridge leaves it out.",
+            file=sys.stderr,
+        )
+    elif cfg.scope.mode == "declare" and cfg.detection.enabled:
+        # The virtual scope server (Week 13). It has no backing process, and it only
+        # works where one daemon holds the scope for every server.
+        from provmcp.scope import SCOPE_SERVER_ID
+
+        entry: dict[str, Any]
+        if mode == "daemon":
+            entry = {
+                "command": provmcp_bin,
+                "args": ["bridge", "--via", daemon, "--server", SCOPE_SERVER_ID],
+            }
+        else:
+            entry = {"url": f"{daemon}/mcp/{SCOPE_SERVER_ID}", "transport": "http"}
+        servers = {SCOPE_SERVER_ID: entry, **servers}
     print(json.dumps({"mcpServers": servers}, indent=2))
 
 
@@ -321,6 +362,16 @@ def audit(
         findings = e.get("findings") or []
         sources = ",".join(sorted({f.get("source_server_id", "?") for f in findings}))
         evidence = findings[0].get("excerpt", "")[:48] if findings else ""
+        if e.get("event") in {"scope_declared", "scope_rejected"}:
+            wanted = e.get("wanted") or e  # a refused change carries the scope asked for
+            e = {**e, "action": e["event"], "target": ", ".join(wanted.get("servers", []))}
+            evidence = str(e.get("reason", ""))[:48] or ", ".join(
+                f"{f['from']}->{f['to']}" for f in wanted.get("flows", [])
+            )
+        elif e.get("scope") == "out_of_scope":
+            evidence = "outside the declared scope"
+        elif e.get("suppressed"):
+            evidence = "declared flow let through"
         table.add_row(
             str(e.get("ts", "")),
             str(e.get("action", "")),
@@ -458,9 +509,13 @@ def agent_run(
     ],
     backend: Annotated[str, typer.Option(help="scripted | anthropic | ollama")] = "scripted",
     model: Annotated[str, typer.Option(help="e.g. claude-haiku-5-5 or llama3.1:8b")] = "",
-    conditions: Annotated[str, typer.Option(help="comma list of none,audit,warn,strict")] = (
-        "audit,strict"
-    ),
+    conditions: Annotated[
+        str,
+        typer.Option(
+            help="comma list of none,audit,warn,strict and, with declared scope, "
+            "audit-scope,strict-scope,strict-oracle"
+        ),
+    ] = "audit,strict",
     trials: Annotated[int, typer.Option(min=1)] = 1,
     limit: Annotated[int | None, typer.Option(help="sample at most N per --scenarios path")] = None,
     seed: Annotated[int, typer.Option()] = 0,
@@ -482,6 +537,13 @@ def agent_run(
     max_usd: Annotated[float | None, typer.Option(help="stop when spend reaches this")] = None,
     price_in: Annotated[float | None, typer.Option(help="USD per 1M input tokens")] = None,
     price_out: Annotated[float | None, typer.Option(help="USD per 1M output tokens")] = None,
+    max_tokens: Annotated[
+        int, typer.Option(min=256, help="output limit per model call, thinking included")
+    ] = 8192,
+    effort: Annotated[
+        str | None,
+        typer.Option(help="anthropic only: low | medium | high | xhigh | max (default: the API's)"),
+    ] = None,
     ollama_url: Annotated[str, typer.Option()] = "http://localhost:11434",
     out: Annotated[Path | None, typer.Option(help="write a markdown report here")] = None,
     cache: Annotated[Path | None, typer.Option(help="JSONL results cache (resumable)")] = None,
@@ -492,7 +554,10 @@ def agent_run(
 
     Conditions: none (no ProvMCP), audit (ProvMCP logs only: the baseline),
     warn (held calls are never approved), strict (flagged calls are blocked).
-    Results are cached, so an interrupted run resumes with the same command.
+    With declared scope (Week 13): audit-scope and strict-scope (the agent must
+    call declare_scope first), strict-oracle (the scenario's ground-truth scope
+    is set for it). Results are cached, so an interrupted run resumes with the
+    same command.
     """
     import logging
     from datetime import date
@@ -511,7 +576,7 @@ def agent_run(
         run_suite,
         select_scenarios,
     )
-    from provmcp.agent.runner import CONDITIONS, SYSTEM_PROMPT
+    from provmcp.agent.runner import CONDITIONS, SCOPE_MODES, SYSTEM_PROMPT
     from provmcp.benchmark import Scenario
 
     logging.getLogger("provmcp").setLevel(logging.ERROR)  # the report carries the decisions
@@ -525,13 +590,17 @@ def agent_run(
     detector_list = detection.detectors
     if backend in {"anthropic", "ollama"} and not model:
         raise typer.BadParameter(f"--model is required for --backend {backend}")
-    model_name = model or "scripted"
-    known_in, known_out = KNOWN_PRICES.get(model_name, (0.0, 0.0))
+    if effort is not None and backend != "anthropic":
+        raise typer.BadParameter("--effort applies to --backend anthropic only")
+    api_model = model or "scripted"
+    # The label used in the cache and the report; an effort level is part of it.
+    model_name = f"{api_model}@{effort}" if effort else api_model
+    known_in, known_out = KNOWN_PRICES.get(api_model, (0.0, 0.0))
     p_in = price_in if price_in is not None else known_in
     p_out = price_out if price_out is not None else known_out
-    if backend == "anthropic" and model_name not in KNOWN_PRICES and price_in is None:
+    if backend == "anthropic" and api_model not in KNOWN_PRICES and price_in is None:
         console.print(
-            f"[yellow]No price known for {model_name}; pass --price-in/--price-out "
+            f"[yellow]No price known for {api_model}; pass --price-in/--price-out "
             "for cost tracking and --max-usd.[/yellow]"
         )
 
@@ -547,9 +616,10 @@ def agent_run(
     episodes = len(chosen) * len(condition_list) * trials
     est_in = est_out = 0
     for scenario in chosen:
-        i, o = estimate_tokens(scenario, max_steps)
-        est_in += i * len(condition_list) * trials
-        est_out += o * len(condition_list) * trials
+        for condition in condition_list:
+            i, o = estimate_tokens(scenario, max_steps, SCOPE_MODES.get(condition) == "declared")
+            est_in += i * trials
+            est_out += o * trials
     est_cost = (est_in * p_in + est_out * p_out) / 1_000_000
     console.print(
         f"{len(chosen)} scenario(s) x {len(condition_list)} condition(s) x {trials} trial(s) "
@@ -559,6 +629,8 @@ def agent_run(
         f"  rough estimate: {est_in:,} input + {est_out:,} output tokens ≈ ${est_cost:.2f} "
         f"(at ${p_in}/{p_out} per 1M)"
     )
+    if backend == "anthropic":
+        console.print(f"  {THINKING_NOTE}")
     if dry_run:
         return
 
@@ -566,9 +638,9 @@ def agent_run(
         if backend == "scripted":
             return ScriptedBackend.from_scenario(scenario)
         if backend == "anthropic":
-            return AnthropicBackend(model_name)
+            return AnthropicBackend(api_model, max_tokens=max_tokens, effort=effort)
         if backend == "ollama":
-            return OllamaBackend(model_name, base_url=ollama_url)
+            return OllamaBackend(api_model, base_url=ollama_url)
         raise typer.BadParameter(f"unknown backend {backend!r}")
 
     if chosen:
@@ -612,11 +684,17 @@ def agent_run(
         settings={
             "date": date.today().isoformat(),
             "provmcp": __version__,
-            "backend / model": f"{backend} / {model_name}",
+            "backend / model": f"{backend} / {model_name}"
+            + (f" (output limit {max_tokens} tokens per call)" if backend == "anthropic" else ""),
             "conditions": ", ".join(condition_list),
             "trials": str(trials),
             "detection": _describe_detection(detection, threshold),
-            "max steps": str(max_steps),
+            "max steps": str(max_steps)
+            + (
+                " (one more where the agent declares a scope)"
+                if any(SCOPE_MODES.get(c) == "declared" for c in condition_list)
+                else ""
+            ),
             "scenarios": ", ".join(str(p) for p in scenarios)
             + (f" (limit {limit} per path, seed {seed})" if limit else ""),
             "system prompt": f'"{SYSTEM_PROMPT}"',
@@ -631,6 +709,136 @@ def agent_run(
     else:
         console.print(report)
     console.print(f"{len(results)} episode(s) reported; spend ${spent:.4f}")
+
+
+@app.command(name="scope-probe")
+def scope_probe(
+    scenarios: Annotated[
+        list[Path], typer.Option("--scenarios", "-s", exists=True, help="directory or file")
+    ],
+    backend: Annotated[str, typer.Option(help="scripted | anthropic | ollama")] = "scripted",
+    model: Annotated[str, typer.Option(help="e.g. claude-haiku-5-5 or llama3.1:8b")] = "",
+    trials: Annotated[int, typer.Option(min=1)] = 1,
+    limit: Annotated[int | None, typer.Option(help="sample at most N per --scenarios path")] = None,
+    seed: Annotated[int, typer.Option()] = 0,
+    include_same_server: Annotated[bool, typer.Option("--include-same-server")] = False,
+    concurrency: Annotated[int, typer.Option(min=1)] = 4,
+    max_usd: Annotated[float | None, typer.Option(help="stop when spend reaches this")] = None,
+    price_in: Annotated[float | None, typer.Option(help="USD per 1M input tokens")] = None,
+    price_out: Annotated[float | None, typer.Option(help="USD per 1M output tokens")] = None,
+    max_tokens: Annotated[
+        int, typer.Option(min=256, help="output limit per model call, thinking included")
+    ] = 8192,
+    effort: Annotated[
+        str | None,
+        typer.Option(help="anthropic only: low | medium | high | xhigh | max (default: the API's)"),
+    ] = None,
+    ollama_url: Annotated[str, typer.Option()] = "http://localhost:11434",
+    cache: Annotated[Path | None, typer.Option(help="JSONL results cache (resumable)")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+) -> None:
+    """Ask a model which scope it declares for each scenario's task (one short call each).
+
+    No server is started and no tool runs: the model sees the task and the
+    tool catalog, and the probe stops at the declaration. The result is
+    compared with each scenario's ground-truth scope.
+    """
+    from provmcp.agent.backends import (
+        AnthropicBackend,
+        Backend,
+        BackendError,
+        OllamaBackend,
+        ScriptedBackend,
+    )
+    from provmcp.agent.experiment import KNOWN_PRICES, select_scenarios
+    from provmcp.agent.probe import estimate_probe_tokens, run_probe
+    from provmcp.benchmark import Scenario, ground_truth_scope
+    from provmcp.scope import Scope
+    from provmcp.scope_eval import compare
+
+    if backend in {"anthropic", "ollama"} and not model:
+        raise typer.BadParameter(f"--model is required for --backend {backend}")
+    if effort is not None and backend != "anthropic":
+        raise typer.BadParameter("--effort applies to --backend anthropic only")
+    api_model = model or "scripted"
+    model_name = f"{api_model}@{effort}" if effort else api_model
+    known_in, known_out = KNOWN_PRICES.get(api_model, (0.0, 0.0))
+    p_in = price_in if price_in is not None else known_in
+    p_out = price_out if price_out is not None else known_out
+    chosen, notes = select_scenarios(
+        scenarios, limit=limit, seed=seed, include_same_server=include_same_server
+    )
+    for note in notes:
+        console.print(f"  note: {note}")
+    if not chosen:
+        console.print("[red]No runnable scenarios (need a task and an oracle).[/red]")
+        raise typer.Exit(code=1)
+    est_in = sum(estimate_probe_tokens(s)[0] for s in chosen) * trials
+    est_out = sum(estimate_probe_tokens(s)[1] for s in chosen) * trials
+    console.print(
+        f"{len(chosen)} scenario(s) x {trials} trial(s) = [bold]{len(chosen) * trials}[/bold] "
+        f"probe(s); backend={backend} model={model_name}"
+    )
+    console.print(
+        f"  rough estimate: {est_in:,} input + {est_out:,} output tokens ≈ "
+        f"${(est_in * p_in + est_out * p_out) / 1_000_000:.2f} (at ${p_in}/{p_out} per 1M)"
+    )
+    if backend == "anthropic":
+        console.print(f"  {THINKING_NOTE}")
+    if dry_run:
+        return
+
+    def make_backend(scenario: Scenario) -> Backend:
+        if backend == "scripted":
+            return ScriptedBackend.from_scenario(scenario)
+        if backend == "anthropic":
+            return AnthropicBackend(api_model, max_tokens=max_tokens, effort=effort)
+        if backend == "ollama":
+            return OllamaBackend(api_model, base_url=ollama_url)
+        raise typer.BadParameter(f"unknown backend {backend!r}")
+
+    try:
+        make_backend(chosen[0])
+    except BackendError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    safe_model = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in model_name)
+    cache_path = cache or Path("logs") / f"scope-probe-{backend}-{safe_model}.jsonl"
+    try:
+        results = asyncio.run(
+            run_probe(
+                chosen,
+                make_backend,
+                model=model_name,
+                trials=trials,
+                cache=cache_path,
+                concurrency=1 if backend == "scripted" else concurrency,
+                price_in=p_in,
+                price_out=p_out,
+                max_usd=max_usd,
+                progress=console.print,
+            )
+        )
+    except BackendError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
+    truth = {s.id: ground_truth_scope(s) for s in chosen}
+    declared = [r for r in results if r.declared is not None]
+    checks = [compare(Scope.parse(r.declared), truth[r.scenario_id]) for r in declared]
+    spent = sum(r.input_tokens * p_in + r.output_tokens * p_out for r in results) / 1_000_000
+
+    def share(count: int, total: int) -> str:
+        return f"{count}/{total} ({100 * count / total:.0f}%)" if total else "-"
+
+    console.print(f"probes: {len(results)}; spend ${spent:.4f}; cache {cache_path}")
+    console.print(
+        f"  declared first:        {share(sum(r.declared_first for r in results), len(results))}"
+    )
+    console.print(f"  declared at all:       {share(len(declared), len(results))}")
+    console.print(f"  matches ground truth:  {share(sum(c.exact for c in checks), len(checks))}")
+    console.print(f"  leaves something out:  {share(sum(c.under for c in checks), len(checks))}")
+    console.print(f"  lets something in:     {share(sum(c.over for c in checks), len(checks))}")
 
 
 @app.command(name="agent-report")
