@@ -633,11 +633,13 @@ def test_compare_and_summaries() -> None:
 
 
 def test_scope_conditions_and_cache_labels() -> None:
-    assert SCOPE_MODES == {
+    week13 = {
         "audit-scope": "declared",
         "strict-scope": "declared",
         "strict-oracle": "oracle",
     }
+    # Later weeks may add conditions; the Week 13 ones must keep their meaning.
+    assert week13.items() <= SCOPE_MODES.items()
     assert set(SCOPE_MODES) <= set(CONDITIONS)
     plain = detection_label("strict", DetectionConfig())
     assert "scope" not in plain  # labels of earlier runs are unchanged

@@ -173,6 +173,10 @@ class ScopeConfig(BaseModel):
 
     mode: Literal["off", "declare"] = "off"
     honor_flows: bool = True
+    # When False, the `declare_scope` tool description drops its sentence telling the
+    # agent to ignore what tool descriptions and results ask for. Used for the Week 14
+    # ablation; the default keeps the warning.
+    warn: bool = True
 
 
 class ProvMcpConfig(BaseModel):

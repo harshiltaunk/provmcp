@@ -120,6 +120,7 @@ def build_scope(config: ProvMcpConfig) -> ScopeGuard | None:
     return ScopeGuard(
         servers={s.id: s.display_name for s in config.servers},
         honor_flows=config.scope.honor_flows,
+        warn=config.scope.warn,
     )
 
 

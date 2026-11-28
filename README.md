@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 13 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12); opt-in declared scope, which holds the agent to the servers and flows it names before reading any tool result (Week 13). 334 tests.
+**Status:** Week 14 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12); opt-in declared scope, which holds the agent to the servers and flows it names before reading any tool result (Week 13); real-model runs of the evasions on three Claude tiers, an ablation of the scope mechanism and paired tests (Week 14). 357 tests.
 
 ## Why
 
@@ -24,7 +24,7 @@ source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev,embed]"      # drop ",embed" to skip sentence-transformers
 
-pytest -q                           # 334 passed
+pytest -q                           # 357 passed
 bash scripts/demo_live_attack.sh    # watch ProvMCP stop a live exfiltration attempt
 ```
 
@@ -65,6 +65,8 @@ Detection defaults (since 0.9.0) are calibrated on a held-out split and checked 
 
 `canonicalize = true` (opt-in since 0.12) compares both sides after decoding base64, hex, percent-encoding and HTML references, Unicode normalization, case folding, defanging and despacing, so an encoded or reformatted copy is still tied to its source. See `docs/week-12.md`.
 
+Measured with real models (Week 14): on a request that hands the task to a note, Claude Haiku, Sonnet and Opus 5.5 were told by the note to transform a value in eight ways and post it. With the default detectors and blocking, the value reached the sink in 47 of 72 runs; with canonical views, in 22 of 72. ROT13, paraphrase and a value split over two calls pass both. See `docs/week-14.md`.
+
 ## Declared scope (opt-in since 0.13)
 
 Provenance sees data flow, not what the user asked for. With `[scope] mode = "declare"` the daemon shows the host one more server, `provmcp`, with one tool, `declare_scope(servers, flows)`. The agent calls it before any other tool, when it has seen the request and the tool catalog but no tool result.
@@ -83,9 +85,19 @@ mode = "declare"       # default "off"
 honor_flows = true     # false: keep the server check, ignore declared flows
 ```
 
-It needs the daemon, because one process must hold the scope for every server. What it does not stop: an attack that stays inside the declared plan, and a tool description that talks the agent into declaring it. Both are measured in `docs/week-13.md`.
+It needs the daemon, because one process must hold the scope for every server. What it does not stop: an attack that stays inside the declared plan, and a tool description that talks the agent into declaring it. Both are measured in `docs/week-13.md` and `docs/week-14.md`.
 
-Measured with Claude Haiku, Sonnet and Opus 5.5 (Week 13): when flagged calls are blocked, 86% of benign tasks complete with declared scope, against 58% with provenance alone and 88% with no defence. Attacks outside the declared plan succeed in 1 of 145 runs against 2 of 145, and attacks inside the plan in 11 of 20, about the undefended rate.
+Measured with Claude Haiku, Sonnet and Opus 5.5, three trials each (Weeks 13 and 14):
+
+| when flagged calls are blocked | no defence | provenance alone | declared scope |
+|---|---|---|---|
+| benign tasks completed | 135/153 (88%) | 89/153 (58%) | 133/153 (87%) |
+| attacks outside the declared plan that succeed | 35/261 | 6/261 | 4/261 |
+| attacks inside the plan that succeed | 23/36 | 5/36 | 21/36 |
+
+- **It removes the false alarms that make blocking costly**, and it lets in-plan attacks through at about the undefended rate.
+- **It is as good as the declaration.** On an open request ("do what the note asks") Opus declares narrowly and leaks in 0 of 24 runs. Haiku and Sonnet declare the sink and leak as often as with provenance alone.
+- **The warning sentence in the tool's description, not the act of declaring, keeps hostile tool descriptions out.** In an ablation, hijacks were 26/108 with neither, 0/108 with the sentence alone, and 13/108 with the declaration alone.
 
 ## Measuring attack success with an LLM
 
@@ -126,6 +138,10 @@ provmcp agent-run -s benchmarks/attacks -s benchmarks/benign -s benchmarks/inpla
 python scripts/evaluate_week13.py --probe haiku=logs/scope-probe-week13-haiku.jsonl \
   --run haiku=logs/agent-cache-week13-haiku.jsonl
 
+# real models on the evasions, the scope ablation, paired tests (Week 14); check and report are free
+bash scripts/run_week14.sh check
+bash scripts/run_week14.sh report
+
 # rescore a cache with the current oracles and rebuild a report (no model calls)
 provmcp agent-report --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
   -s benchmarks/external/injecagent --out docs/results/baseline-week8-haiku-injecagent.md
@@ -156,6 +172,8 @@ src/provmcp/
   evaluation.py       Week 10 strategies, levels and Wilson intervals
   adaptive.py         Week 12 adaptive-adversary scoring and sweeps
   scope_eval.py       Week 13 scope strategies and declaration scoring
+  realworld.py        Week 14 episode facts (sent, leaked, flagged) and paired tests
+  recover.py          Week 14: can the value be recovered from what a server received?
   perf.py             Week 11 latency and memory benchmarks
   svgchart.py         dependency-free SVG charts for the reports
   agent/              LLM agent harness: backends, episode runner, suite + report,
@@ -167,6 +185,7 @@ benchmarks/           attack (cd-*), benign (bn-*) and MCPSecBench-derived (msb-
                       adaptive/ holds the Week 12 evasion scenarios (ad-*, bn-ad-*);
                       inplan/ and poisoned/ hold the Week 13 scope scenarios
                       (ip-*, bn-ip-*, dp-*, bn-dp-*);
+                      realworld/ holds the Week 14 real-model scenarios (rw-*, bn-rw-*);
                       splits/ holds the frozen Week 6 corpus and the Week 9 calibration split
 examples/             echo and scripted test servers
 configs/              dev.toml, demo-attack.toml
@@ -181,12 +200,12 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week13.sh
+bash scripts/verify_week14.sh
 ```
 
 ## Known limitations
 
-See `docs/week-07.md` to `docs/week-09.md`, `docs/week-12.md` and `docs/week-13.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no per-session scope (it is bounded per server since 0.11); only `tools/call` is inspected; paraphrased data, values split across calls or transformed outside the decoder set (Week 12), self-flushing of a server's own quota, and pure control-flow hijacks are not detected by provenance; encoded and reformatted data is detected only with `canonicalize = true`; and provenance sees data flow, not user intent, so flows the user asked for are flagged too. Declared scope (opt-in) catches calls to servers the request does not need, including control-flow hijacks and encoded exfiltration to such servers, and stops flagging flows the request asks for. It does not catch attacks that stay inside the declared plan, and it relies on a declaration that a hostile tool description can influence.
+See `docs/week-07.md` to `docs/week-09.md` and `docs/week-12.md` to `docs/week-14.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no per-session scope (it is bounded per server since 0.11); only `tools/call` is inspected; paraphrased data, values split across calls or transformed outside the decoder set (Week 12), self-flushing of a server's own quota, and pure control-flow hijacks are not detected by provenance; encoded and reformatted data is detected only with `canonicalize = true`; and provenance sees data flow, not user intent, so flows the user asked for are flagged too. Declared scope (opt-in) catches calls to servers the request does not need, including control-flow hijacks and encoded exfiltration to such servers, and stops flagging flows the request asks for. It does not catch attacks that stay inside the declared plan, and it relies on the declaration: two of three models declare more than an open request needs, and without the warning sentence in `declare_scope` a hostile tool description entered the declaration in 13 of 108 runs (Week 14).
 
 ## License
 
