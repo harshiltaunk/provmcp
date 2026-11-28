@@ -71,6 +71,7 @@ class Turn:
     calls: list[ToolCall] = field(default_factory=list)
     input_tokens: int = 0
     output_tokens: int = 0
+    truncated: bool = False  # the reply hit the output limit and is incomplete
 
 
 def model_tool_name(server: str, tool: str) -> str:
@@ -138,16 +139,29 @@ class ScriptedBackend(Backend):
 
     name = "scripted"
 
-    def __init__(self, plan: list[tuple[str, str, dict[str, Any]]]) -> None:
+    def __init__(
+        self,
+        plan: list[tuple[str, str, dict[str, Any]]],
+        scope: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__("scripted")
         self.plan = plan
+        # Declared first when the catalog has `declare_scope` (Week 13).
+        self.scope = scope
         self.results: list[ToolResult] = []
         self._names: dict[tuple[str, str], str] = {}
         self._next = 0
+        self._declare: str | None = None
 
     @classmethod
     def from_scenario(cls, scenario: Scenario) -> ScriptedBackend:
-        """Follow the scenario's trace: the calls a fully compliant agent would make."""
+        """Follow the scenario's trace: the calls a fully compliant agent would make.
+
+        Asked to declare a scope, it declares the scenario's ground truth, so it
+        stands for an honest agent that reads the request correctly.
+        """
+        from provmcp.benchmark import ground_truth_scope
+
         plan = [
             (
                 step.server,
@@ -157,14 +171,21 @@ class ScriptedBackend(Backend):
             for step in scenario.trace
             if step.method == "tools/call"
         ]
-        return cls(plan)
+        return cls(plan, ground_truth_scope(scenario).to_json())
 
     def begin(self, *, system: str, task: str, tools: list[ToolSpec]) -> None:
+        from provmcp.scope import SCOPE_SERVER_ID, SCOPE_TOOL
+
         self._names = {(t.server, t.tool): t.name for t in tools}
         self._next = 0
         self.results = []
+        self._declare = self._names.get((SCOPE_SERVER_ID, SCOPE_TOOL)) if self.scope else None
 
     async def step(self) -> Turn:
+        if self._declare is not None:
+            name, self._declare = self._declare, None
+            assert self.scope is not None
+            return Turn(calls=[ToolCall(id="scripted_scope", name=name, arguments=self.scope)])
         if self._next >= len(self.plan):
             return Turn(text="Done.")
         server, tool, arguments = self.plan[self._next]
@@ -188,11 +209,19 @@ class AnthropicBackend(Backend):
         *,
         api_key: str | None = None,
         base_url: str = "https://api.anthropic.com",
-        max_tokens: int = 1024,
+        max_tokens: int = 8192,
         temperature: float | None = None,
+        effort: str | None = None,
         post: PostJson | None = None,
     ) -> None:
-        super().__init__(model)
+        # Current Claude models may think before they answer. Thinking counts toward
+        # `max_tokens` and is billed as output, so the limit is generous. `effort`
+        # (`output_config.effort`) is sent only when given; the label used in caches
+        # and reports then becomes "<model>@<effort>", so runs at different effort
+        # levels are never mixed.
+        super().__init__(f"{model}@{effort}" if effort else model)
+        self.api_model = model
+        self.effort = effort
         key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if not key:
             raise BackendError("ANTHROPIC_API_KEY is not set", fatal=True)
@@ -219,7 +248,7 @@ class AnthropicBackend(Backend):
 
     async def step(self) -> Turn:
         body: dict[str, Any] = {
-            "model": self.model,
+            "model": self.api_model,
             "max_tokens": self.max_tokens,
             "system": self._system,
             "messages": self._messages,
@@ -228,12 +257,17 @@ class AnthropicBackend(Backend):
             body["tools"] = self._tools
         if self.temperature is not None:
             body["temperature"] = self.temperature
+        if self.effort:
+            body["output_config"] = {"effort": self.effort}
         data = await self._post(self._url, self._headers, body)
         content = data.get("content") or []
         usage = data.get("usage") or {}
+        # Cached input is counted at the full input price: spend is never understated.
+        input_keys = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
         turn = Turn(
-            input_tokens=int(usage.get("input_tokens", 0)),
-            output_tokens=int(usage.get("output_tokens", 0)),
+            input_tokens=sum(int(usage.get(key) or 0) for key in input_keys),
+            output_tokens=int(usage.get("output_tokens") or 0),
+            truncated=data.get("stop_reason") == "max_tokens",
         )
         texts: list[str] = []
         for block in content:

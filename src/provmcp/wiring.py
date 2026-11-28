@@ -22,6 +22,7 @@ from provmcp.policy import PolicyTemplate
 from provmcp.provenance import ProvenanceStore
 from provmcp.proxy import Proxy, Router
 from provmcp.registry import ServerRecord, ServerRegistry
+from provmcp.scope import ScopeGuard
 from provmcp.transports import HttpTransport, StdioTransport, Transport
 
 
@@ -112,6 +113,16 @@ def build_audit(config: ProvMcpConfig) -> AuditLog:
     return AuditLog(config.resolve_path(config.proxy.audit_log))
 
 
+def build_scope(config: ProvMcpConfig) -> ScopeGuard | None:
+    """The scope guard for `[scope] mode = "declare"`, or None when scope is off."""
+    if config.scope.mode != "declare" or not config.detection.enabled:
+        return None
+    return ScopeGuard(
+        servers={s.id: s.display_name for s in config.servers},
+        honor_flows=config.scope.honor_flows,
+    )
+
+
 def build_proxy(config: ProvMcpConfig) -> Proxy:
     """Build a Proxy that is ready to `await router.start_all()` and serve."""
     return Proxy(
@@ -123,6 +134,7 @@ def build_proxy(config: ProvMcpConfig) -> Proxy:
         router=build_router(config),
         inspector=build_inspector(config),
         track_tool_metadata=config.detection.enabled and config.detection.track_tool_metadata,
+        scope=build_scope(config),
     )
 
 

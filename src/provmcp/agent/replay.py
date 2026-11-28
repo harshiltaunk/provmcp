@@ -17,6 +17,14 @@ Counting:
   the attack was not attempted, with at least one flagged call. This is the
   traffic a user would see interrupted for nothing.
 - An attempted attack is *detected* when a goal call is flagged.
+
+Week 13: an episode run with declared scope carries its declaration, and can
+be replayed under four strategies (`strategy`):
+
+- `provenance`: the scope is ignored (the behaviour before 0.13);
+- `scope`: only calls to servers outside the scope are flagged;
+- `servers`: out-of-scope calls, and every provenance finding;
+- `flows`: out-of-scope calls, and findings on flows the scope does not declare.
 """
 
 from __future__ import annotations
@@ -29,7 +37,10 @@ from provmcp.benchmark import Scenario, canned_tool_result
 from provmcp.config import DetectionConfig, ProvMcpConfig, ProxyConfig
 from provmcp.detectors.base import Detector
 from provmcp.provenance import OriginTag, ProvenanceStore, TaggedPayload
+from provmcp.scope import Scope
 from provmcp.wiring import build_detector
+
+REPLAY_STRATEGIES = ("provenance", "scope", "servers", "flows")
 
 
 @dataclass
@@ -64,7 +75,16 @@ def replay_episode(
     *,
     min_confidence: float,
     track_tool_metadata: bool,
+    strategy: str = "provenance",
+    scope: Scope | None = None,
 ) -> ReplayedEpisode:
+    """Replay one episode. `scope` defaults to the one the episode declared."""
+    if strategy not in REPLAY_STRATEGIES:
+        raise ValueError(f"unknown strategy {strategy!r}; use one of {REPLAY_STRATEGIES}")
+    if scope is None and result.declared is not None:
+        scope = Scope.parse(result.declared)
+    if strategy == "provenance":
+        scope = None
     _, per_goal = goal_matches(result, scenario)
     goal_indexes = {i for matched in per_goal for i in matched}
     replayed = ReplayedEpisode(
@@ -84,19 +104,32 @@ def replay_episode(
     counts: dict[tuple[str, str], int] = {}
     known = {s.id for s in scenario.servers}
     for index, call in enumerate(result.calls):
-        if call.server not in known:
-            continue
+        if call.server not in known or call.scope == "undeclared":
+            continue  # the scope server itself, or a call refused before any declaration
         replayed.calls += 1
-        findings = [
-            f
-            for f in detector.scan(
-                store=store,
-                target_server_id=call.server,
-                outbound_params={"name": call.tool, "arguments": call.arguments},
-            )
-            if f.confidence >= min_confidence
-        ]
-        if findings:
+        outside = scope is not None and not scope.allows_server(call.server)
+        findings = (
+            []
+            if outside or strategy == "scope"
+            else [
+                f
+                for f in detector.scan(
+                    store=store,
+                    target_server_id=call.server,
+                    outbound_params={"name": call.tool, "arguments": call.arguments},
+                )
+                if f.confidence >= min_confidence
+            ]
+        )
+        if scope is not None and strategy == "flows":
+            findings = [
+                f for f in findings if not scope.allows_flow(f.source_server_id, call.server)
+            ]
+        if outside:
+            replayed.flagged_calls += 1
+            replayed.flagged_goal |= index in goal_indexes
+            replayed.alarms.append(f"{call.server}.{call.tool} is outside the declared scope")
+        elif findings:
             replayed.flagged_calls += 1
             replayed.flagged_goal |= index in goal_indexes
             top = max(findings, key=lambda f: f.confidence)
@@ -119,6 +152,7 @@ def replay_all(
     detection: DetectionConfig,
     *,
     threshold: float = 0.6,
+    strategy: str = "provenance",
 ) -> list[ReplayedEpisode]:
     detector, minimum = build_replay_detector(detection, threshold)
     return [
@@ -128,6 +162,7 @@ def replay_all(
             detector,
             min_confidence=minimum,
             track_tool_metadata=detection.track_tool_metadata,
+            strategy=strategy,
         )
         for r in results
         if r.scenario_id in scenarios and scenarios[r.scenario_id].oracle is not None

@@ -18,6 +18,10 @@ Since Week 8 a scenario can also drive a real LLM agent (`provmcp.agent`):
 - `canned["responses"]` maps a tool name to its result. A list is a
   sequence: the n-th call returns the n-th item (the last item repeats).
 - `metadata` records where an imported scenario came from.
+- `scope` (Week 13) is the ground truth for declared scope: the servers the
+  user's request needs and the data flows between them, read from the task
+  text alone. `ground_truth_scope` falls back to the entry call's server for
+  scenarios without one (the imported InjecAgent cases).
 
 The runner is deliberately offline — it never starts a subprocess, never
 talks to a real LLM. It exists to exercise the provenance pipeline and
@@ -39,6 +43,7 @@ from provmcp.detectors.substring import SubstringDetector
 from provmcp.policy import InfluenceFinding
 from provmcp.provenance import OriginTag, ProvenanceStore, TaggedPayload
 from provmcp.registry import TrustClass
+from provmcp.scope import Scope
 
 
 class ScenarioServer(BaseModel):
@@ -101,6 +106,13 @@ class Oracle(BaseModel):
     goal: list[OracleCall]
 
 
+class ScenarioScope(BaseModel):
+    """What the user's request needs: servers, and `[source, target]` data flows."""
+
+    servers: list[str]
+    flows: list[tuple[str, str]] = Field(default_factory=list)
+
+
 class Scenario(BaseModel):
     id: str
     title: str
@@ -111,6 +123,7 @@ class Scenario(BaseModel):
     task: str | None = None
     oracle: Oracle | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    scope: ScenarioScope | None = None
 
     @property
     def is_attack(self) -> bool:
@@ -121,6 +134,32 @@ class Scenario(BaseModel):
             if server.id == server_id:
                 return server
         raise KeyError(f"scenario {self.id} has no server {server_id!r}")
+
+
+def ground_truth_scope(scenario: Scenario) -> Scope:
+    """The scope the user's request calls for.
+
+    Uses the scenario's `scope` when it has one. Otherwise the request is
+    taken to need only the server of the oracle's entry call (the user's own
+    tool in an imported InjecAgent case), or failing that the servers of the
+    trace steps that are not marked as cross-server.
+    """
+    if scenario.scope is not None:
+        known = {s.id for s in scenario.servers}
+        unknown = (
+            set(scenario.scope.servers) | {x for f in scenario.scope.flows for x in f}
+        ) - known
+        if unknown:
+            raise ValueError(
+                f"scenario {scenario.id}: scope names unknown server(s) {sorted(unknown)}"
+            )
+        return Scope(
+            frozenset(scenario.scope.servers) | {x for f in scenario.scope.flows for x in f},
+            frozenset(scenario.scope.flows),
+        )
+    if scenario.oracle is not None and scenario.oracle.entry is not None:
+        return Scope(frozenset({scenario.oracle.entry.server}))
+    return Scope(frozenset(s.server for s in scenario.trace if not s.expect_cross_origin_from))
 
 
 def load_scenario(path: str | Path) -> Scenario:

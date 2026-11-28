@@ -111,7 +111,7 @@ class StdioBridge(_LineBridge):
         stdin: TextIO | None = None,
         stdout: TextIO | None = None,
     ) -> None:
-        if server_id not in proxy.registry:
+        if not proxy.serves(server_id):
             raise ValueError(f"unknown server_id: {server_id!r}")
         super().__init__(stdin=stdin, stdout=stdout)
         self.proxy = proxy

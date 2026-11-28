@@ -10,11 +10,10 @@ The server exposes two paths:
     Readiness check. Returns 200 with `{"status": "ok"}` once all
     transports have been started.
 
-The intent for Week 3 is that any MCP-aware HTTP client — Claude Desktop
-with an HTTP transport configuration, cURL, Postman — can send JSON-RPC
-requests to this endpoint and talk to any configured backing server
-through ProvMCP. The server does not yet inspect outbound calls; that is
-Week 7 work.
+Any MCP-aware HTTP client can send JSON-RPC requests to this endpoint and
+talk to any configured backing server through ProvMCP. Tool calls are
+inspected by the proxy (Week 7). With `[scope] mode = "declare"` the path
+`/mcp/provmcp` is the virtual scope server (Week 13).
 """
 
 from __future__ import annotations
@@ -27,6 +26,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from provmcp import __version__
 from provmcp.proxy import Proxy, RpcRequest
 from provmcp.transports import TransportError
 
@@ -79,7 +79,7 @@ def build_app(proxy: Proxy) -> FastAPI:
     app = FastAPI(
         title="ProvMCP",
         description="Runtime detection of cross-server confused-deputy attacks in MCP.",
-        version="0.11.0",
+        version=__version__,
         lifespan=lifespan,
     )
 
@@ -93,11 +93,19 @@ def build_app(proxy: Proxy) -> FastAPI:
             "inspection": inspector is not None,
             "policy": inspector.template.value if inspector is not None else None,
             "pending_approvals": len(inspector.approvals.entries()) if inspector else 0,
+            "scope": (
+                None
+                if proxy.scope is None
+                else {
+                    "declared": proxy.scope.scope.to_json() if proxy.scope.scope else None,
+                    "locked": proxy.scope.locked,
+                }
+            ),
         }
 
     @app.post("/mcp/{server_id}")
     async def mcp(server_id: str, envelope: JsonRpcEnvelope) -> JsonRpcResponse:
-        if server_id not in proxy.registry:
+        if not proxy.serves(server_id):
             raise HTTPException(status_code=404, detail=f"unknown server: {server_id!r}")
         request = RpcRequest(
             method=envelope.method,

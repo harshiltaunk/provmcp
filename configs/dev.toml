@@ -32,6 +32,14 @@ allowlist = []                            # values allowed to cross servers, e.g
 # which catches encoded or reformatted copies (Week 12, opt-in):
 # canonicalize = true
 
+# Declared scope (Week 13, opt-in). The host sees one more server, `provmcp`, whose
+# tool `declare_scope` the agent calls first with the servers and cross-server flows
+# the request needs. Calls outside that scope are handled by the policy above, and
+# findings on a declared flow are let through. Needs the daemon (`provmcp run`).
+# [scope]
+# mode = "declare"       # default "off"
+# honor_flows = true     # false: keep the server check, ignore declared flows
+
 [[servers]]
 id = "echo"
 display_name = "Echo (dummy)"

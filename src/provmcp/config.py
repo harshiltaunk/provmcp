@@ -6,6 +6,8 @@ ProvMCP is configured by a single TOML file with three kinds of section:
   locations for the audit log and the approval store, and optional
   per-server-pair policy overrides.
 - ``[detection]`` — which detectors run on live traffic and their settings.
+- ``[scope]`` — declared scope (Week 13, off by default): the agent states
+  which servers and flows a request needs before it reads any tool result.
 - ``[[servers]]`` — one entry per backing MCP server.
 
 Example:
@@ -51,6 +53,7 @@ from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 from provmcp.policy import PolicyTemplate
 from provmcp.registry import TrustClass
+from provmcp.scope import SCOPE_SERVER_ID
 
 DetectorName = Literal["substring", "structured", "embedding"]
 
@@ -156,11 +159,28 @@ class DetectionConfig(BaseModel):
         return value
 
 
+class ScopeConfig(BaseModel):
+    """The [scope] section (Week 13, opt-in). See `provmcp.scope`.
+
+    `mode = "declare"` adds a virtual server `provmcp` with one tool,
+    `declare_scope`. Tool calls are refused until the agent declares the
+    servers and flows the request needs; calls to other servers then follow
+    `[proxy] policy`, and findings on a declared flow are ignored.
+
+    `honor_flows = false` keeps the server check but ignores declared flows,
+    so every cross-server finding is still handled by the policy.
+    """
+
+    mode: Literal["off", "declare"] = "off"
+    honor_flows: bool = True
+
+
 class ProvMcpConfig(BaseModel):
     """The whole TOML file."""
 
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     detection: DetectionConfig = Field(default_factory=DetectionConfig)
+    scope: ScopeConfig = Field(default_factory=ScopeConfig)
     servers: list[ServerConfig] = Field(default_factory=list)
 
     _config_dir: Path | None = PrivateAttr(default=None)
@@ -178,6 +198,13 @@ class ProvMcpConfig(BaseModel):
                     raise ValueError(f"pair policy names unknown server: {side!r}")
         if self.detection.enabled and not self.detection.detectors:
             raise ValueError("detection is enabled but no detectors are listed")
+        if self.scope.mode == "declare":
+            if not self.detection.enabled:
+                raise ValueError('[scope] mode = "declare" needs detection enabled')
+            if SCOPE_SERVER_ID in seen:
+                raise ValueError(
+                    f'server id {SCOPE_SERVER_ID!r} is reserved when [scope] mode = "declare"'
+                )
 
     def resolve_path(self, value: str | None) -> Path | None:
         """Expand `~` and resolve a relative path against the config file's directory."""
