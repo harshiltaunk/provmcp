@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="294" viewBox="0 0 760 294" role="img" aria-labelledby="chart-title chart-desc" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title id="chart-title">Adaptive evasions caught, and false alarms</title>
+<desc id="chart-desc">Offline. 17 evasions (control excluded); 5 benign counterparts.</desc>
+<rect width="760" height="294" fill="#ffffff"/>
+<text x="16" y="28" font-size="15" font-weight="600" fill="#191919">Adaptive evasions caught, and false alarms</text>
+<text x="16" y="48" font-size="12" fill="#666666">Offline. 17 evasions (control excluded); 5 benign counterparts.</text>
+<rect x="250" y="62" width="10" height="10" rx="2" fill="#257de0"/>
+<text x="266" y="71" font-size="12" fill="#191919">evasions caught</text>
+<rect x="379" y="62" width="10" height="10" rx="2" fill="#f47230"/>
+<text x="395" y="71" font-size="12" fill="#191919">benign false alarms</text>
+<text x="690" y="71" font-size="11" fill="#666666" text-anchor="end">whiskers: 95% Wilson interval</text>
+<line x1="250.0" y1="84" x2="250.0" y2="264" stroke="#e6e6e6" stroke-width="1"/>
+<text x="250.0" y="280" font-size="11" fill="#666666" text-anchor="middle">0%</text>
+<line x1="360.0" y1="84" x2="360.0" y2="264" stroke="#e6e6e6" stroke-width="1"/>
+<text x="360.0" y="280" font-size="11" fill="#666666" text-anchor="middle">25%</text>
+<line x1="470.0" y1="84" x2="470.0" y2="264" stroke="#e6e6e6" stroke-width="1"/>
+<text x="470.0" y="280" font-size="11" fill="#666666" text-anchor="middle">50%</text>
+<line x1="580.0" y1="84" x2="580.0" y2="264" stroke="#e6e6e6" stroke-width="1"/>
+<text x="580.0" y="280" font-size="11" fill="#666666" text-anchor="middle">75%</text>
+<line x1="690.0" y1="84" x2="690.0" y2="264" stroke="#e6e6e6" stroke-width="1"/>
+<text x="690.0" y="280" font-size="11" fill="#666666" text-anchor="middle">100%</text>
+<text x="240" y="109.0" font-size="12" fill="#191919" text-anchor="end">0.9.0 default</text>
+<g>
+<title>0.9.0 default, evasions caught: 0/17 (0%, 0-18)</title>
+<line x1="250.0" y1="98.0" x2="331.1" y2="98.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="250.0" y1="94.0" x2="250.0" y2="102.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="331.1" y1="94.0" x2="331.1" y2="102.0" stroke="#666666" stroke-width="1.5"/>
+<text x="337.1" y="102" font-size="11" fill="#666666">0%</text>
+</g>
+<g>
+<title>0.9.0 default, benign false alarms: 0/5 (0%, 0-43)</title>
+<line x1="250.0" y1="112.0" x2="441.2" y2="112.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="250.0" y1="108.0" x2="250.0" y2="116.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="441.2" y1="108.0" x2="441.2" y2="116.0" stroke="#666666" stroke-width="1.5"/>
+<text x="447.2" y="116" font-size="11" fill="#666666">0%</text>
+</g>
+<text x="240" y="151.0" font-size="12" fill="#191919" text-anchor="end">default + canonical</text>
+<g>
+<title>default + canonical, evasions caught: 10/17 (59%, 36-78)</title>
+<path d="M250.0,134.0 h254.8 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-254.8 Z" fill="#257de0"/>
+<line x1="408.4" y1="140.0" x2="594.9" y2="140.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="408.4" y1="136.0" x2="408.4" y2="144.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="594.9" y1="136.0" x2="594.9" y2="144.0" stroke="#666666" stroke-width="1.5"/>
+<text x="600.9" y="144" font-size="11" fill="#666666">59%</text>
+</g>
+<g>
+<title>default + canonical, benign false alarms: 0/5 (0%, 0-43)</title>
+<line x1="250.0" y1="154.0" x2="441.2" y2="154.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="250.0" y1="150.0" x2="250.0" y2="158.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="441.2" y1="150.0" x2="441.2" y2="158.0" stroke="#666666" stroke-width="1.5"/>
+<text x="447.2" y="158" font-size="11" fill="#666666">0%</text>
+</g>
+<text x="240" y="193.0" font-size="12" fill="#191919" text-anchor="end">embedding</text>
+<g>
+<title>embedding, evasions caught: 11/17 (65%, 41-83)</title>
+<path d="M250.0,176.0 h280.7 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-280.7 Z" fill="#257de0"/>
+<line x1="431.7" y1="182.0" x2="613.8" y2="182.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="431.7" y1="178.0" x2="431.7" y2="186.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="613.8" y1="178.0" x2="613.8" y2="186.0" stroke="#666666" stroke-width="1.5"/>
+<text x="619.8" y="186" font-size="11" fill="#666666">65%</text>
+</g>
+<g>
+<title>embedding, benign false alarms: 5/5 (100%, 57-100)</title>
+<path d="M250.0,190.0 h436.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-436.0 Z" fill="#f47230"/>
+<line x1="498.8" y1="196.0" x2="690.0" y2="196.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="498.8" y1="192.0" x2="498.8" y2="200.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="690.0" y1="192.0" x2="690.0" y2="200.0" stroke="#666666" stroke-width="1.5"/>
+<text x="696.0" y="200" font-size="11" fill="#666666">100%</text>
+</g>
+<text x="240" y="235.0" font-size="12" fill="#191919" text-anchor="end">canonical + embedding</text>
+<g>
+<title>canonical + embedding, evasions caught: 13/17 (76%, 53-90)</title>
+<path d="M250.0,218.0 h332.5 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-332.5 Z" fill="#257de0"/>
+<line x1="482.0" y1="224.0" x2="648.0" y2="224.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="482.0" y1="220.0" x2="482.0" y2="228.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="648.0" y1="220.0" x2="648.0" y2="228.0" stroke="#666666" stroke-width="1.5"/>
+<text x="654.0" y="228" font-size="11" fill="#666666">76%</text>
+</g>
+<g>
+<title>canonical + embedding, benign false alarms: 5/5 (100%, 57-100)</title>
+<path d="M250.0,232.0 h436.0 a4.0,4.0 0 0 1 4.0,4.0 v4.0 a4.0,4.0 0 0 1 -4.0,4.0 h-436.0 Z" fill="#f47230"/>
+<line x1="498.8" y1="238.0" x2="690.0" y2="238.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="498.8" y1="234.0" x2="498.8" y2="242.0" stroke="#666666" stroke-width="1.5"/>
+<line x1="690.0" y1="234.0" x2="690.0" y2="242.0" stroke="#666666" stroke-width="1.5"/>
+<text x="696.0" y="242" font-size="11" fill="#666666">100%</text>
+</g>
+</svg>

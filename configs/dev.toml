@@ -28,6 +28,9 @@ allowlist = []                            # values allowed to cross servers, e.g
 # measured on real traffic):
 # detectors = ["substring", "structured", "embedding"]
 # thresholds = { substring = 0.428, structured = 0.85, embedding = <from calibration-week9.md> }
+# To compare canonical views (decoded, Unicode-normalized, case-folded, defanged),
+# which catches encoded or reformatted copies (Week 12, opt-in):
+# canonicalize = true
 
 [[servers]]
 id = "echo"

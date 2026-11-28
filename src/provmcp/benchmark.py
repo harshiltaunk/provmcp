@@ -54,6 +54,9 @@ class ScenarioStep(BaseModel):
     method: str
     params: dict[str, Any] = Field(default_factory=dict)
     expect_cross_origin_from: str | None = None
+    # Week 12: a change of session starts a fresh provenance store, as a new
+    # host session or a restarted daemon does.
+    session: int = 0
 
 
 def _leaf_values(value: Any) -> list[str]:
@@ -172,22 +175,36 @@ class BenchmarkRunner:
     """
 
     def __init__(
-        self, *, detector: Detector | None = None, track_tool_metadata: bool = False
+        self,
+        *,
+        detector: Detector | None = None,
+        track_tool_metadata: bool = False,
+        max_per_server: int | None = None,
     ) -> None:
         self.detector = detector or SubstringDetector(min_run_length=8)
         self.track_tool_metadata = track_tool_metadata
+        self.max_per_server = max_per_server
 
-    def run(self, scenario: Scenario) -> ScenarioResult:
-        store = ProvenanceStore.empty()
-        step_results: list[StepResult] = []
-        counts: dict[tuple[str, str], int] = {}
+    def _new_store(self, scenario: Scenario) -> ProvenanceStore:
+        store = ProvenanceStore(max_per_server=self.max_per_server)
         if self.track_tool_metadata:
             # A host lists every server's tools at session start.
             for server in scenario.servers:
                 if "tools/list" in server.canned:
                     tag = OriginTag(server_id=server.id, tool_name="tools/list")
                     store.record(TaggedPayload(content=server.canned["tools/list"], tag=tag))
+        return store
+
+    def run(self, scenario: Scenario, *, scan_steps: set[int] | None = None) -> ScenarioResult:
+        """Replay the trace. `scan_steps` limits scanning to those step numbers (default: all)."""
+        step_results: list[StepResult] = []
+        counts: dict[tuple[str, str], int] = {}
+        session = scenario.trace[0].session if scenario.trace else 0
+        store = self._new_store(scenario)
         for step in scenario.trace:
+            if step.session != session:
+                session = step.session
+                store = self._new_store(scenario)
             canned_result = _canned_result_for(scenario, step, counts)
             # If the step reads from the server, tag the response with the
             # server's origin before considering the next step.
@@ -197,10 +214,14 @@ class BenchmarkRunner:
             # Also check this step's *outbound* params against prior
             # provenance, because a call to server B carrying content from
             # server A is the attack we want to catch.
-            findings = self.detector.scan(
-                store=store,
-                target_server_id=step.server,
-                outbound_params=step.params,
+            findings = (
+                self.detector.scan(
+                    store=store,
+                    target_server_id=step.server,
+                    outbound_params=step.params,
+                )
+                if scan_steps is None or step.step in scan_steps
+                else []
             )
             step_results.append(
                 StepResult(

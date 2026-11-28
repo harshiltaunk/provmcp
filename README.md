@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 11 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11). 231 tests.
+**Status:** Week 12 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12). 267 tests.
 
 ## Why
 
@@ -63,6 +63,8 @@ Policies can be overridden per (source, target) server pair, and trusted values 
 
 Detection defaults (since 0.9.0) are calibrated on a held-out split and checked on real Claude traffic: substring 0.428 and structured 0.85, each with its own threshold, and tool descriptions (`tools/list`) tracked as a provenance source. `thresholds = {}` and `track_tool_metadata = false` restore the Week 7 behaviour. The embedding detector is calibrated (see `docs/results/calibration-week9.md`) but opt-in. See `docs/week-09.md`.
 
+`canonicalize = true` (opt-in since 0.12) compares both sides after decoding base64, hex, percent-encoding and HTML references, Unicode normalization, case folding, defanging and despacing, so an encoded or reformatted copy is still tied to its source. See `docs/week-12.md`.
+
 ## Measuring attack success with an LLM
 
 ```bash
@@ -90,6 +92,9 @@ python scripts/bench_week11.py --quick
 # the full evaluation: every strategy, four levels, intervals, figures (no model calls)
 python scripts/evaluate_week10.py --run haiku=logs/agent-cache-haiku-week10.jsonl
 
+# adaptive adversary: evasion scenarios, sweeps, and the cost of canonical views
+python scripts/evaluate_week12.py --run haiku=logs/agent-cache-haiku-week10.jsonl
+
 # rescore a cache with the current oracles and rebuild a report (no model calls)
 provmcp agent-report --cache logs/agent-cache-anthropic-claude-haiku-5-5.jsonl \
   -s benchmarks/external/injecagent --out docs/results/baseline-week8-haiku-injecagent.md
@@ -111,10 +116,11 @@ src/provmcp/
   provenance.py       origin tags and the shared store
   registry.py         server identity and trust class
   policy.py           strict / warn_and_confirm / audit
-  detectors/          substring, structured, embedding, composite
+  detectors/          substring, structured, embedding, composite, canonical views
   server.py           HTTP daemon (FastAPI)
   bridge.py           stdio bridges (daemon and direct mode)
   evaluation.py       Week 10 strategies, levels and Wilson intervals
+  adaptive.py         Week 12 adaptive-adversary scoring and sweeps
   perf.py             Week 11 latency and memory benchmarks
   svgchart.py         dependency-free SVG charts for the reports
   agent/              LLM agent harness: backends, episode runner, suite + report
@@ -122,6 +128,7 @@ src/provmcp/
   transports/         stdio and HTTP clients for backing servers
   config.py, wiring.py, cli.py, benchmark.py
 benchmarks/           attack (cd-*), benign (bn-*) and MCPSecBench-derived (msb-*) scenarios;
+                      adaptive/ holds the Week 12 evasion scenarios (ad-*, bn-ad-*);
                       splits/ holds the frozen Week 6 corpus and the Week 9 calibration split
 examples/             echo and scripted test servers
 configs/              dev.toml, demo-attack.toml
@@ -136,12 +143,12 @@ ruff format src tests scripts examples
 ruff check src tests scripts examples
 mypy src
 pytest -q
-bash scripts/verify_week11.sh
+bash scripts/verify_week12.sh
 ```
 
 ## Known limitations
 
-See `docs/week-07.md` to `docs/week-09.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no per-session scope (it is bounded per server since 0.11); only `tools/call` is inspected; encoded, reformatted or paraphrased data and pure control-flow hijacks are not detected; and provenance sees data flow, not user intent, so flows the user asked for are flagged too.
+See `docs/week-07.md` to `docs/week-09.md` and `docs/week-12.md`. In short: approvals are protected only by a terminal check and file permissions; provenance has no per-session scope (it is bounded per server since 0.11); only `tools/call` is inspected; paraphrased data, values split across calls or transformed outside the decoder set (Week 12), self-flushing of a server's own quota, and pure control-flow hijacks are not detected; encoded and reformatted data is detected only with `canonicalize = true`; and provenance sees data flow, not user intent, so flows the user asked for are flagged too.
 
 ## License
 

@@ -144,6 +144,7 @@ def run(
         console.print(
             f"  inspection: {', '.join(cfg.detection.detectors)}  "
             f"policy={cfg.proxy.policy.value}  threshold={cfg.proxy.detector_threshold}"
+            + ("  canonical views on" if cfg.detection.canonicalize else "")
         )
         for pair in cfg.proxy.pair_policies:
             console.print(f"  pair policy: {pair.source} -> {pair.target} = {pair.policy.value}")
@@ -397,7 +398,11 @@ def approvals_deny(
 
 
 def _detection_options(
-    detectors: str, thresholds: str, substring_score: str, track_tool_metadata: bool | None
+    detectors: str,
+    thresholds: str,
+    substring_score: str,
+    track_tool_metadata: bool | None,
+    canonicalize: bool = False,
 ) -> DetectionConfig:
     """Build a [detection] section from CLI options; unset options keep the defaults.
 
@@ -424,6 +429,8 @@ def _detection_options(
         data["substring_score"] = substring_score
     if track_tool_metadata is not None:
         data["track_tool_metadata"] = track_tool_metadata
+    if canonicalize:
+        data["canonicalize"] = True
     try:
         return DetectionConfig.model_validate(data)
     except ValueError as exc:
@@ -440,6 +447,7 @@ def _describe_detection(detection: DetectionConfig, threshold: float) -> str:
         f"{', '.join(detection.detectors)}; thresholds {gates}; "
         f"substring score {detection.substring_score}; "
         f"tool metadata {'tracked' if detection.track_tool_metadata else 'not tracked'}"
+        + ("; canonical views on" if detection.canonicalize else "")
     )
 
 
@@ -466,6 +474,9 @@ def agent_run(
     track_tool_metadata: Annotated[
         bool | None, typer.Option("--track-tool-metadata/--no-track-tool-metadata")
     ] = None,
+    canonicalize: Annotated[
+        bool, typer.Option("--canonicalize", help="compare canonical views (Week 12, opt-in)")
+    ] = False,
     max_steps: Annotated[int, typer.Option(min=1)] = 8,
     concurrency: Annotated[int, typer.Option(min=1)] = 4,
     max_usd: Annotated[float | None, typer.Option(help="stop when spend reaches this")] = None,
@@ -508,7 +519,9 @@ def agent_run(
     unknown = [c for c in condition_list if c not in CONDITIONS]
     if unknown:
         raise typer.BadParameter(f"unknown condition(s) {unknown}; use {sorted(CONDITIONS)}")
-    detection = _detection_options(detectors, thresholds, substring_score, track_tool_metadata)
+    detection = _detection_options(
+        detectors, thresholds, substring_score, track_tool_metadata, canonicalize
+    )
     detector_list = detection.detectors
     if backend in {"anthropic", "ollama"} and not model:
         raise typer.BadParameter(f"--model is required for --backend {backend}")
@@ -698,6 +711,9 @@ def agent_replay(
     track_tool_metadata: Annotated[
         bool | None, typer.Option("--track-tool-metadata/--no-track-tool-metadata")
     ] = None,
+    canonicalize: Annotated[
+        bool, typer.Option("--canonicalize", help="compare canonical views (Week 12, opt-in)")
+    ] = False,
     out: Annotated[Path | None, typer.Option(help="write the markdown report here")] = None,
 ) -> None:
     """Replay cached agent runs through a detector configuration (no model calls).
@@ -709,7 +725,9 @@ def agent_replay(
     from provmcp.agent.replay import render_replay_report, replay_all
     from provmcp.benchmark import Scenario, load_scenario, load_scenarios
 
-    detection = _detection_options(detectors, thresholds, substring_score, track_tool_metadata)
+    detection = _detection_options(
+        detectors, thresholds, substring_score, track_tool_metadata, canonicalize
+    )
     by_id: dict[str, Scenario] = {}
     for path in scenarios:
         for scenario in load_scenarios(path) if path.is_dir() else [load_scenario(path)]:

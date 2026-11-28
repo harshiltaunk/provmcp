@@ -17,6 +17,11 @@ Scoring (`score_mode`):
 - `coverage` (Week 9): the total length of all distinct shared runs from one
   source server counts, `covered / (covered + scale)`. Copying more distinctive
   content from a server raises the score.
+
+With `canonicalize=True` (Week 12, opt-in) both sides are compared in their
+canonical views (`provmcp.detectors.canonical`): case-insensitive, with
+encodings decoded, look-alike and invisible characters normalized, and, on
+the outbound side, separators squashed out.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ import re
 from collections.abc import Iterator
 from typing import Any, Literal
 
+from provmcp.detectors import canonical
 from provmcp.policy import InfluenceFinding
 from provmcp.provenance import ProvenanceStore, TaggedPayload
 
@@ -71,6 +77,8 @@ class SubstringDetector:
     confidence_scale:
         Longer matched runs yield higher confidence. This caps the mapping
         so a very long match does not peg the score at 1.0 immediately.
+    canonicalize:
+        Compare canonical views of both sides instead of the raw text.
     """
 
     name = "substring"
@@ -80,6 +88,8 @@ class SubstringDetector:
         min_run_length: int = 8,
         confidence_scale: int = 32,
         score_mode: ScoreMode = "longest",
+        *,
+        canonicalize: bool = False,
     ) -> None:
         if min_run_length < 2:
             raise ValueError("min_run_length must be >= 2")
@@ -88,6 +98,7 @@ class SubstringDetector:
         self.min_run_length = min_run_length
         self.confidence_scale = confidence_scale
         self.score_mode: ScoreMode = score_mode
+        self.canonicalize = canonicalize
 
     def scan(
         self,
@@ -98,6 +109,8 @@ class SubstringDetector:
     ) -> list[InfluenceFinding]:
         """Return a finding per source server whose content shows up here."""
         target_text = _flatten_to_text(outbound_params)
+        if self.canonicalize:
+            target_text = "\n".join(canonical.views(target_text, squashed=True))
         findings: list[InfluenceFinding] = []
         runs_by_source: dict[str, set[str]] = {}
 
@@ -137,13 +150,12 @@ class SubstringDetector:
     ) -> set[str]:
         def runs() -> frozenset[str]:
             text = _flatten_to_text(payload.content)
+            if self.canonicalize:
+                text = "\n".join(canonical.views(text))
             return frozenset(_extract_runs(text, self.min_run_length))
 
-        source_runs = (
-            store.derived(payload.tag.tag_id, f"substring:runs:{self.min_run_length}", runs)
-            if store is not None
-            else runs()
-        )
+        key = f"substring:{'canon-' if self.canonicalize else ''}runs:{self.min_run_length}"
+        source_runs = store.derived(payload.tag.tag_id, key, runs) if store is not None else runs()
         return {run for run in source_runs if run in target_text}
 
     def _longest_shared_run(self, payload: TaggedPayload, target_text: str) -> str | None:

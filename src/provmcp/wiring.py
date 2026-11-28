@@ -61,10 +61,14 @@ def build_detector(config: ProvMcpConfig) -> Detector:
         detector: Detector
         if name == "substring":
             detector = SubstringDetector(
-                min_run_length=det.substring_min_run, score_mode=det.substring_score
+                min_run_length=det.substring_min_run,
+                score_mode=det.substring_score,
+                canonicalize=det.canonicalize,
             )
         elif name == "structured":
-            detector = StructuredFieldDetector(allowlist=det.allowlist)
+            detector = StructuredFieldDetector(
+                allowlist=det.allowlist, canonicalize=det.canonicalize
+            )
         else:
             detector = EmbeddingDetector(
                 threshold=det.thresholds.get("embedding", det.embedding_threshold)

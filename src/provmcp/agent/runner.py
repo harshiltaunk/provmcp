@@ -123,10 +123,12 @@ def detection_label(
         if det.thresholds
         else f"global:{threshold:g}"
     )
-    return (
+    label = (
         f"{'+'.join(det.detectors)}; {gates}; score:{det.substring_score}; "
         f"metadata:{'on' if det.track_tool_metadata else 'off'}"
     )
+    # Added in 0.12 only when on, so labels (and cache keys) of earlier runs are unchanged.
+    return f"{label}; canonical:on" if det.canonicalize else label
 
 
 def scenario_group(scenario: Scenario) -> str:

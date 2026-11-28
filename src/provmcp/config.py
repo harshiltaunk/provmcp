@@ -130,6 +130,11 @@ class DetectionConfig(BaseModel):
     added false alarms. See docs/week-09.md. Embedding is calibrated in
     docs/results/calibration-week9.md but stays opt-in until its real-traffic
     false alarms and latency are measured.
+
+    `canonicalize` (Week 12, opt-in) makes the substring and structured
+    detectors compare canonical views of both sides: decoded base64, hex,
+    percent-encoding and HTML references, case-insensitive, with look-alike
+    and invisible characters normalized. See docs/week-12.md.
     """
 
     enabled: bool = True
@@ -140,6 +145,7 @@ class DetectionConfig(BaseModel):
     allowlist: list[str] = Field(default_factory=list)
     thresholds: dict[DetectorName, float] = Field(default_factory=_calibrated_thresholds)
     track_tool_metadata: bool = True
+    canonicalize: bool = False
 
     @field_validator("thresholds")
     @classmethod
