@@ -28,6 +28,10 @@ Normalization rules:
 Each type carries a fixed confidence reflecting how unlikely a coincidental
 match is. A UUID shared across servers is almost certainly a real flow; a
 six-digit number might be a coincidence.
+
+With `canonicalize=True` (Week 12, opt-in) fields are extracted from the
+canonical views of each side (`provmcp.detectors.canonical`): decoded,
+defanged, with look-alike and invisible characters normalized.
 """
 
 from __future__ import annotations
@@ -38,6 +42,7 @@ from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
 
+from provmcp.detectors import canonical
 from provmcp.policy import InfluenceFinding
 from provmcp.provenance import ProvenanceStore
 
@@ -113,6 +118,11 @@ def extract_fields(obj: Any) -> set[Field]:
     return fields
 
 
+def extract_canonical_fields(obj: Any) -> set[Field]:
+    """`extract_fields` over the canonical views of every string in `obj`."""
+    return extract_fields([view for text in iter_strings(obj) for view in canonical.views(text)])
+
+
 class StructuredFieldDetector:
     """Flag typed values that travel from one server into a call to another.
 
@@ -126,6 +136,8 @@ class StructuredFieldDetector:
     kinds:
         Restrict detection to these field kinds. Defaults to every kind in
         `CONFIDENCE_BY_KIND`.
+    canonicalize:
+        Extract fields from canonical views of both sides.
     """
 
     name = "structured"
@@ -135,7 +147,11 @@ class StructuredFieldDetector:
         *,
         allowlist: Iterable[str] = (),
         kinds: Iterable[str] | None = None,
+        canonicalize: bool = False,
     ) -> None:
+        self.canonicalize = canonicalize
+        self._extract = extract_canonical_fields if canonicalize else extract_fields
+        self._key = "structured:canon-fields" if canonicalize else "structured:fields"
         self.allowlist = {value.lower() for value in allowlist}
         selected = set(kinds) if kinds is not None else set(CONFIDENCE_BY_KIND)
         unknown = selected - set(CONFIDENCE_BY_KIND)
@@ -150,7 +166,7 @@ class StructuredFieldDetector:
         target_server_id: str,
         outbound_params: Any,
     ) -> list[InfluenceFinding]:
-        outbound = self._filter(extract_fields(outbound_params))
+        outbound = self._filter(self._extract(outbound_params))
         if not outbound:
             return []
 
@@ -160,7 +176,7 @@ class StructuredFieldDetector:
             if source_id == target_server_id:
                 continue
             fields = store.derived(
-                payload.tag.tag_id, "structured:fields", partial(extract_fields, payload.content)
+                payload.tag.tag_id, self._key, partial(self._extract, payload.content)
             )
             shared = outbound & self._filter(fields)
             for field in shared:
