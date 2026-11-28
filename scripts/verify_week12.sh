@@ -12,7 +12,7 @@ export HF_HUB_OFFLINE=1
 export LC_ALL=C
 
 VERSION="0.12.0"
-EXPECTED_TESTS=267
+EXPECTED_TESTS=266
 HAIKU10="logs/agent-cache-haiku-week10.jsonl"
 
 pass=0; fail=0; skip=0

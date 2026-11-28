@@ -4,7 +4,7 @@ Runtime detection of cross-server confused-deputy attacks in multi-server Model 
 
 ProvMCP is a JSON-RPC proxy that sits between an MCP host (Claude Desktop, Cursor) and the MCP servers connected to it. It records which server every piece of returned content came from. Before forwarding a tool call, it checks whether the call's arguments carry content that originated at a different server, and then blocks it, holds it for the user's approval, or logs it, depending on policy.
 
-**Status:** Week 12 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12). 267 tests.
+**Status:** Week 12 of 16. Live enforcement with strict / warn-and-confirm / audit policies and out-of-band approvals (Week 7); an LLM agent harness with MCPSecBench-derived and InjecAgent cases (Week 8); 27 bundled scenarios, tool-metadata provenance and calibrated per-detector thresholds (Week 9); a four-level evaluation with confidence intervals (Week 10); a bounded, cached provenance store and a performance benchmark against the 50 ms / 100 MB targets (Week 11); an adaptive-adversary evaluation and opt-in canonical views that defeat encoding and reformatting evasions (Week 12). 266 tests.
 
 ## Why
 

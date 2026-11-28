@@ -191,8 +191,8 @@ its Week 10 real-traffic rate and 464 MB (Week 11).
 
 ## Test counts
 
-- **267 tests, all passing** (was 231).
-- New file: `test_week12_adaptive.py` (36).
+- **266 tests, all passing** (was 231).
+- New file: `test_week12_adaptive.py` (35).
 
 ## Try it
 
